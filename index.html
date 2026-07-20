@@ -226,11 +226,12 @@
         }
         .flip-back {
             position: absolute;
-            top: 0; left: 0;
+            top: 50%;
+            left: 0;
             opacity: 0;
-            transform: translateY(8px);
+            transform: translateY(calc(-50% + 6px));
             color: #3d7798;
-            font-size: clamp(16px, 2.2vw, 20px);
+            font-size: clamp(20px, 2.4vw, 24px);
             font-weight: 400;
             white-space: nowrap;
             pointer-events: none;
@@ -244,7 +245,7 @@
             }
             .card-list li:hover .flip-back {
                 opacity: 1;
-                transform: translateY(0);
+                transform: translateY(-50%);
             }
             .card-list li:hover .idx {
                 color: rgba(90,140,170,1);
@@ -260,7 +261,7 @@
             }
             .card-list li.flipped .flip-back {
                 opacity: 1;
-                transform: translateY(0);
+                transform: translateY(-50%);
             }
             .card-list li {
                 cursor: pointer;
@@ -419,63 +420,101 @@
 
     <script>
     (function(){
-        // ── Tutorial hint ──
+        // ── Arrow Tutorial Hint ──
         var isTouch = window.matchMedia('(hover:none) and (pointer:coarse)').matches;
-        var firstCard = document.querySelector('.card-list li');
-        if (firstCard) {
-            var hint = document.createElement('div');
-            hint.className = 'tutorial-hint';
-            hint.textContent = isTouch ? '👆 点击课程查看主题' : '👆 悬停查看主题';
-            hint.style.cssText = [
+        var firstLi = document.querySelector('.card-list li');
+        var glassCard = firstLi ? firstLi.closest('.glass-card') : null;
+
+        if (firstLi && glassCard) {
+            // Calculate position relative to glass card
+            var liTop = firstLi.offsetTop;
+            var glassStyle = window.getComputedStyle(glassCard);
+            var glassPadding = parseInt(glassStyle.paddingTop) || 32;
+
+            // Create hint wrapper
+            var bubble = document.createElement('div');
+            bubble.id = 'tutorial-bubble';
+            bubble.style.cssText = [
                 'position:absolute',
                 'z-index:10',
-                'background:rgba(255,255,255,.70)',
-                'backdrop-filter:blur(12px)',
-                '-webkit-backdrop-filter:blur(12px)',
-                'border-radius:14px',
-                'padding:10px 20px',
+                'left:24px',
+                'top:' + (liTop + glassPadding - 14) + 'px',
+                'background:rgba(255,255,255,.72)',
+                'backdrop-filter:blur(14px)',
+                '-webkit-backdrop-filter:blur(14px)',
+                'border-radius:12px',
+                'padding:9px 18px',
                 'font-size:15px',
                 'color:#255773',
                 'font-weight:600',
                 'pointer-events:none',
                 'white-space:nowrap',
-                'border:1px solid rgba(255,255,255,.5)',
-                'box-shadow:0 4px 20px rgba(60,110,150,.12)',
+                'border:1px solid rgba(255,255,255,.45)',
+                'box-shadow:0 3px 16px rgba(60,110,150,.10)',
                 'opacity:0',
-                'transform:translateY(-8px)',
-                'animation:tutorialIn .6s ease .8s forwards, tutorialOut .5s ease 6s forwards',
+                'transform:translateY(-52px)',
                 'font-family:\"仲春仿宋\",\"Noto Serif SC\",serif',
                 'font-feature-settings:\"trad\"'
             ].join(';');
+            bubble.textContent = isTouch ? '点击查看主题' : '悬停查看主题';
 
-            // Position near first card
-            var cardRect = firstCard.getBoundingClientRect();
-            hint.style.top = (cardRect.top - 52) + 'px';
-            hint.style.left = (cardRect.left + 12) + 'px';
-            hint.style.position = 'fixed';
+            // Create arrow (CSS triangle pointing down at the item)
+            var arrow = document.createElement('div');
+            arrow.style.cssText = [
+                'position:absolute',
+                'z-index:10',
+                'left:50px',
+                'top:' + (liTop + glassPadding - 6) + 'px',
+                'width:0','height:0',
+                'border-left:8px solid transparent',
+                'border-right:8px solid transparent',
+                'border-top:8px solid rgba(255,255,255,.72)',
+                'backdrop-filter:blur(14px)',
+                'opacity:0',
+                'transform:translateY(-52px)',
+                'pointer-events:none'
+            ].join(';');
 
-            firstCard.parentNode.parentNode.style.position = 'relative';
-            document.body.appendChild(hint);
+            // Animation
+            var bAni = 'tutorialBounce .6s ease .8s forwards, tutorialOut .4s ease 7s forwards';
+            bubble.style.animation = bAni;
+            arrow.style.animation = bAni;
+
+            glassCard.appendChild(bubble);
+            glassCard.appendChild(arrow);
 
             // Dismiss on any interaction
             var dismiss = function(){
-                hint.style.opacity = '0';
-                hint.style.transition = 'opacity .3s';
-                setTimeout(function(){ if(hint.parentNode) hint.parentNode.removeChild(hint); }, 400);
+                bubble.style.transition = 'opacity .3s';
+                arrow.style.transition = 'opacity .3s';
+                bubble.style.opacity = '0';
+                arrow.style.opacity = '0';
+                setTimeout(function(){
+                    if(bubble.parentNode) bubble.parentNode.removeChild(bubble);
+                    if(arrow.parentNode) arrow.parentNode.removeChild(arrow);
+                }, 400);
             };
             document.addEventListener('click', dismiss, {once:true});
             document.addEventListener('mousemove', dismiss, {once:true});
-            setTimeout(function(){ if(hint.parentNode) dismiss(); }, 8000);
+            setTimeout(function(){ if(bubble.parentNode) dismiss(); }, 9000);
         }
 
         // ── Add keyframes ──
-        var style = document.createElement('style');
-        style.textContent = '@keyframes tutorialIn { to { opacity:1; transform:translateY(0); } } @keyframes tutorialOut { to { opacity:0; transform:translateY(-6px); } }';
-        document.head.appendChild(style);
+        var styleEl = document.createElement('style');
+        styleEl.textContent = [
+            '@keyframes tutorialBounce {',
+            '  0% { opacity:0; transform:translateY(-52px); }',
+            '  60% { opacity:1; transform:translateY(2px); }',
+            '  100% { opacity:1; transform:translateY(0); }',
+            '}',
+            '@keyframes tutorialOut {',
+            '  to { opacity:0; transform:translateY(-12px); }',
+            '}'
+        ].join('');
+        document.head.appendChild(styleEl);
 
         // ── Mobile tap ──
-        if (window.matchMedia('(hover:none) and (pointer:coarse)').matches
-         || window.matchMedia('(max-width:1024px)').matches) {
+        if (isTouch || window.matchMedia('(max-width:1024px)').matches) {
             document.querySelectorAll('.card-list li').forEach(function(li){
                 li.addEventListener('click', function(e){
                     e.stopPropagation();
