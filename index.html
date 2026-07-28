@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Course Gallery — 朋辈社课 · Coding</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Sora:wght@200;300;400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="./assets/index-YKPlwFqT.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Dy-t42c_.css">
+</head>
+<body>
+
+  <!-- Loading -->
+  <div id="loader">
+    <span></span>
+  </div>
+
+  <!-- Splash: transparent click-to-skip layer — the 3D roll IS the opening -->
+  <div id="splash">
+    <div class="splash-vignette"></div>
+  </div>
+
+  <!-- WebGL -->
+  <canvas id="webgl"></canvas>
+
+  <!-- Site Header: left = mode toggle + home link, right = brand + hamburger -->
+  <header id="site-header">
+    <div class="header-left">
+      <button id="mode-toggle" class="icon-btn" aria-label="切换简洁模式" title="简洁 / 复杂模式">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18h6"/>
+          <path d="M10 21h4"/>
+          <path d="M12 3a6 6 0 0 0-3.6 10.8c.8.7 1.3 1.5 1.5 2.2h4.2c.2-.7.7-1.5 1.5-2.2A6 6 0 0 0 12 3z"/>
+        </svg>
+      </button>
+      <a id="home-link" class="icon-btn" href="https://molan.cc.cd" aria-label="回到主页 molan.cc.cd" title="molan.cc.cd">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6.5 13.5 L16.5 3.5"/>
+          <path d="M9.5 3.5 h7 v7"/>
+          <circle cx="8.5" cy="19" r="1.9"/>
+        </svg>
+      </a>
+    </div>
+    <div class="header-right">
+      <div class="rainbow-bar"></div>
+      <span class="site-title">COURSE GALLERY</span>
+      <button class="menu-toggle" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Arrows -->
+  <button class="nav-arrow nav-prev" aria-label="Previous">&#8592;</button>
+  <button class="nav-arrow nav-next" aria-label="Next">&#8594;</button>
+
+  <!-- Frame Info -->
+  <div id="frame-info">
+    <h2 id="frame-title">我们是人生旅者</h2>
+    <p id="frame-subtitle">第 1 节 · 身份认同</p>
+  </div>
+
+  <!-- Dot Indicators -->
+  <div id="indicators"></div>
+
+  <!-- Interaction Hint -->
+  <div id="hint">
+    <svg class="hand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 11V6a2 2 0 0 1 4 0v5"/>
+      <path d="M9 11h-.5a2.5 2.5 0 0 0 0 5H9"/>
+      <path d="M13 11V4a2 2 0 0 1 4 0v7"/>
+      <path d="M17 11V6a2 2 0 0 1 4 0v8a8 8 0 0 1-8 8H9a8 8 0 0 1-8-8v-3"/>
+      <path d="M5 11V8a2 2 0 0 1 4 0v3"/>
+    </svg>
+    <span>Scroll to Explore Modules</span>
+    <svg class="hand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 11V6a2 2 0 0 1 4 0v5"/>
+      <path d="M9 11h-.5a2.5 2.5 0 0 0 0 5H9"/>
+      <path d="M13 11V4a2 2 0 0 1 4 0v7"/>
+      <path d="M17 11V6a2 2 0 0 1 4 0v8a8 8 0 0 1-8 8H9a8 8 0 0 1-8-8v-3"/>
+      <path d="M5 11V8a2 2 0 0 1 4 0v3"/>
+    </svg>
+  </div>
+
+  <!-- Preview Overlay (stage 1) -->
+  <div id="detail">
+    <button id="detail-back" aria-label="Back">&#8592; BACK</button>
+    <div id="detail-content">
+      <div id="detail-tags"></div>
+      <h1 id="detail-title"></h1>
+      <p id="detail-subtitle"></p>
+      <p id="detail-desc"></p>
+      <a id="detail-link" href="#">继续滑动，进入课程 &#8595;</a>
+    </div>
+  </div>
+
+  <!-- Course Page (stage 2) -->
+  <div id="course-page">
+    <button id="course-back" aria-label="Back">&#8592; BACK</button>
+    <div id="course-scroll">
+      <div class="course-inner">
+        <p id="course-no">COURSE 01 / 14</p>
+        <h1 id="course-title"></h1>
+        <p id="course-keyword"></p>
+        <section class="course-section">
+          <h3>核心问题</h3>
+          <p id="course-question"></p>
+        </section>
+        <section class="course-section">
+          <h3>理论锚点</h3>
+          <div id="course-theory"></div>
+        </section>
+        <section class="course-section" id="course-imagery-section">
+          <h3>旅者意象</h3>
+          <p id="course-imagery"></p>
+        </section>
+        <p class="course-footnote">实操环节与阅读线索，请于课堂内解锁 ✦</p>
+      </div>
+    </div>
+    <!-- Seamless next-course buffer hint -->
+    <div id="next-hint">
+      <span class="next-hint-arrow">&#8595;</span>
+      <span class="next-hint-label">继续滑动，进入下一卷</span>
+      <span class="next-hint-track"><span id="next-hint-bar"></span></span>
+    </div>
+  </div>
+
+  <!-- Simple Mode: plain catalog, no 3D interaction -->
+  <div id="simple-view">
+    <div class="simple-inner">
+      <p class="simple-label">课程目录 · COURSE CATALOG</p>
+      <h1 class="simple-heading">人生旅程系列课程</h1>
+      <p class="simple-sub">14 节 · 以旅者之名，行心理学之路</p>
+      <div id="simple-grid"></div>
+      <p class="simple-foot">点击任意课程直接阅读 · 点左上角灯泡返回 3D 模式</p>
+    </div>
+  </div>
+
+  <!-- About Us Overlay -->
+  <div id="about-page">
+    <button id="about-close" aria-label="Close">&#10005;</button>
+    <div class="about-inner">
+      <div class="rainbow-bar"></div>
+      <h1>About Us</h1>
+      <p class="about-lead">人生旅程系列课程 · 朋辈社课</p>
+      <p>以阿德勒思想为核心，串联心理学前沿领域理论，通过「旅者」的核心意象，解决人生旅途中会实际遇到的问题。</p>
+      <p>以启发性和实用性教学为主，引导大家进行课后阅读与思考，在实操中感受心理学的魅力——全方面提升心理学素养，成为一名合格的朋辈er，为同辈的助人功能提供坚实保障。</p>
+      <p class="about-quote">「旅途没有终点，愚者从不问『到了没有』。」</p>
+    </div>
+  </div>
+
+  <!-- Side Menu Drawer -->
+  <div id="menu-overlay"></div>
+  <nav id="side-menu">
+    <div class="menu-header">
+      <div class="menu-brand">
+        <div class="rainbow-bar"></div>
+        <span>COURSE GALLERY</span>
+      </div>
+      <button class="menu-close" aria-label="Close menu">&#10005;</button>
+    </div>
+    <p class="menu-section-label">课程目录 · 14 节</p>
+    <ul class="menu-list" id="menu-course-list"></ul>
+    <div class="menu-bottom">
+      <a href="#" id="menu-about">About Us</a>
+    </div>
+    <div class="menu-footer">
+      <p>朋辈社课 · 人生旅程系列课程</p>
+      <p class="menu-sub">Life is a journey, not a destination</p>
+    </div>
+  </nav>
+
+</body>
+</html>
