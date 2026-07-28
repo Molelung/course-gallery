@@ -1,11 +1,15 @@
 /**
- * IntroAnimation — the film is pulled out of the roll from one end.
+ * IntroAnimation — the opening choreography (no title card):
  *
- * Time-based (not a spring — a spring converges in a fraction of a second
- * and reads as a flash): the peel travels the full path over ~2.6s with an
- * easeInOutCubic profile, so the film accelerates gently, streams across
- * the screen, then SLOWS TO A STOP with no overshoot or bounce (慢慢停下).
- * The whole group dollies back to its home pose over the same ease.
+ *   Act 1 (0.5s)   the loader's breathing dot fades, revealing the film
+ *                  roll sitting at the CENTRE of the screen
+ *   Act 2 (1.3s)   the roll drifts slowly to the LEFT side of the screen
+ *   Act 3 (4.4s)   the film is pulled out of the roll, streaming across the
+ *                  screen to form the winding strip, slowing to a stop with
+ *                  no overshoot (easeInOutCubic — 慢慢停下)
+ *
+ * Time-based (springs converge in a flash). Poses are aspect-aware so the
+ * roll stays visible on narrow portrait phones as well as desktop.
  * skipToEnd() fast-forwards (click-to-skip).
  */
 export default class IntroAnimation {
@@ -15,29 +19,53 @@ export default class IntroAnimation {
     this.finished = false;
     this._running = false;
 
-    this.duration = 2600; // ms for the pull
+    this.appearDur = 500;
+    this.travelDur = 1300;
+    this.pullDur = 4400;
     this._t0 = null;
 
-    // Opening pose (e = 0): group shifted right & toward the camera so the
-    // roll (at the strip's far-left tip, local x=-12) sits just inside the
-    // left screen edge. rotation stays 0 — any Y-rotation swings the roll
-    // off-screen (verified twice).
     this.object.visible = true;
     this.object.setUnroll(0);
     this.object.rotation.y = 0;
-    this.object.position.x = 6.9;
-    this.object.position.z = 6.5;
+
+    this._computePoses();
+    this._applyPose(this.poseA);
   }
 
-  /** Trigger the pull. */
+  /**
+   * Roll local position ≈ (-12, -1.3, -9.55) — the strip's left tip.
+   * Group pose = desired roll world position minus that local offset.
+   * Desktop camera z≈6.2 / portrait z≈10 — poses are computed per aspect
+   * so the roll is framed on-screen on every device.
+   */
+  _computePoses() {
+    const portrait = window.innerWidth < window.innerHeight;
+    // Act 1: roll at screen centre, close & present
+    this.poseA = portrait ? { x: 12.0, y: 1.1, z: 13.0 }
+                          : { x: 11.5, y: 1.1, z: 10.0 };
+    // Act 2 end: roll at the left edge, ready to unroll across
+    this.poseB = portrait ? { x: 10.3, y: 0.4, z: 10.5 }
+                          : { x: 6.9, y: 0.0, z: 6.5 };
+  }
+
+  _applyPose(p) {
+    this.object.position.set(p.x, p.y, p.z);
+  }
+
+  _lerpPose(a, b, e) {
+    this.object.position.set(
+      a.x + (b.x - a.x) * e,
+      a.y + (b.y - a.y) * e,
+      a.z + (b.z - a.z) * e
+    );
+  }
+
+  /** Trigger the opening sequence. */
   begin() {
     if (this._running || this.finished) return;
+    this._computePoses(); // re-check aspect in case of rotation/resize
     this._running = true;
-    // Portrait phones: the roll & early peel are outside the narrow view —
-    // start partway through the ease so the film is already streaming in
-    // from the left edge instead of showing an empty screen for ~1.5s.
-    const portrait = window.innerWidth < window.innerHeight;
-    this._t0 = portrait ? performance.now() - this.duration * 0.35 : null;
+    this._t0 = null; // armed; stamped on the first update
   }
 
   /** Fast-forward to the fully laid-out state (click-to-skip). */
@@ -46,24 +74,39 @@ export default class IntroAnimation {
     this._running = false;
     this.object.setUnroll(1);
     this.object.rotation.y = 0;
-    this.object.position.x = 0;
-    this.object.position.z = 0;
+    this.object.position.set(0, 0, 0);
   }
 
   update() {
     if (this.finished || !this._running) return;
     if (this._t0 === null) this._t0 = performance.now();
 
-    const raw = (performance.now() - this._t0) / this.duration;
-    const t = Math.min(1, Math.max(0, raw));
-    // easeInOutCubic: slow start, steady middle, slow stop — no overshoot
-    const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const now = performance.now() - this._t0;
+    const T1 = this.appearDur;
+    const T2 = T1 + this.travelDur;
+    const T3 = T2 + this.pullDur;
+    const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-    this.object.rotation.y = 0;
-    this.object.position.x = (1 - e) * 6.9;
-    this.object.position.z = (1 - e) * 6.5;
+    if (now < T1) {
+      // Act 1 — hold the roll at centre
+      this._applyPose(this.poseA);
+      this.object.setUnroll(0);
+      return;
+    }
+
+    if (now < T2) {
+      // Act 2 — drift to the left edge
+      const e = ease((now - T1) / this.travelDur);
+      this._lerpPose(this.poseA, this.poseB, e);
+      this.object.setUnroll(0);
+      return;
+    }
+
+    // Act 3 — the pull: unroll + dolly home over the same slow ease
+    const e = ease(Math.min(1, (now - T2) / this.pullDur));
+    this._lerpPose(this.poseB, { x: 0, y: 0, z: 0 }, e);
     this.object.setUnroll(e);
 
-    if (t >= 1) this.skipToEnd();
+    if (e >= 1) this.skipToEnd();
   }
 }

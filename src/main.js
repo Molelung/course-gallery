@@ -46,11 +46,15 @@ const interaction = new Interaction(camera.camera);
 document.body.classList.add("intro-pending");
 const revealChrome = () => document.body.classList.remove("intro-pending");
 
-// Splash: title card over the coiled roll; the pull starts the 3D unroll
+// Splash: transparent layer over the 3D roll; onComplete starts the opening
 const splash = new SplashAnimation({
+  holdDuration: 500,   // loader breathing dot fades -> roll revealed at centre
+  pullDuration: 4400,  // matches the intro pull
+  fadeDuration: 600,
   onComplete: () => {
     intro.begin();
-    revealChrome();
+    // Chrome fades in once the pull is underway
+    setTimeout(revealChrome, 2000);
   },
   onSkip: () => {
     intro.skipToEnd();
