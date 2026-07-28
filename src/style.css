@@ -22,6 +22,29 @@ html, body {
   height: 100%;
 }
 
+/* Site Header */
+#site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  padding: 28px 24px 16px;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.site-title {
+  font-size: clamp(14px, 3vw, 18px);
+  font-weight: 300;
+  letter-spacing: 10px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  text-shadow: 0 1px 8px rgba(0,0,0,0.5);
+}
+
 /* Loading */
 #loader {
   position: fixed;
@@ -239,7 +262,8 @@ body.detail-mode #detail {
 body.detail-mode .nav-arrow,
 body.detail-mode #frame-info,
 body.detail-mode #indicators,
-body.detail-mode #hint {
+body.detail-mode #hint,
+body.detail-mode #site-header {
   opacity: 0;
   pointer-events: none;
 }

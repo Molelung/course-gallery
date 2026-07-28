@@ -39,10 +39,9 @@ export default class Camera {
   }
 
   /**
-   * Pull the camera back just enough that the active frame always fits the
-   * viewport (with margin) on any aspect ratio, so nothing overflows and the
-   * strip scales with the device.
-   * On portrait / mobile screens, use a larger fill so the film dominates.
+   * Fit the camera so the cylindrical carousel fills the viewport nicely.
+   * Shows the center frame prominently with adjacent frames peeking in.
+   * On portrait / mobile screens, zoom in more so the film dominates.
    */
   fit() {
     if (!this.reel) return;
@@ -51,26 +50,30 @@ export default class Camera {
     const tan = Math.tan(vFov / 2);
     const aspect = this.camera.aspect;
 
-    // Responsive fill: on narrow portrait screens, fill more of the viewport
+    // Responsive fill
     const isPortrait = aspect < 1;
-    const fill = isPortrait ? 0.72 : this.fill;
+    const fill = isPortrait ? 0.62 : this.fill;
 
-    // Effective size of a tilted frame's bounding box
-    const w = this.reel.frameWidth;
-    const h = this.reel.frameHeight;
+    // For the cylindrical carousel, the effective visible width includes
+    // the center frame + portions of adjacent frames curving away.
+    // Use ~1.8x frame width for the carousel view.
+    const w = this.reel.frameWidth * 1.8;
+    const h = this.reel.frameHeight + 0.5; // strip height with borders
     const tilt = this.reel.tilt || 0;
     const effW = Math.abs(w * Math.cos(tilt)) + Math.abs(h * Math.sin(tilt));
     const effH = Math.abs(w * Math.sin(tilt)) + Math.abs(h * Math.cos(tilt));
 
-    // Distance needed to fit width and height at the target fill fraction
+    // Distance to fit
     const dH = effH / (fill * 2 * tan);
     const dW = effW / (fill * aspect * 2 * tan);
     this.baseZ = Math.max(dH, dW);
 
-    // Close-up distance (strip is straightened in detail view, so no tilt)
-    const enterFill = isPortrait ? 0.98 : this.enterFill;
-    const cH = h / (enterFill * 2 * tan);
-    const cW = w / (enterFill * aspect * 2 * tan);
+    // Close-up: fill viewport with a single frame
+    const enterFill = isPortrait ? 0.95 : this.enterFill;
+    const fw = this.reel.frameWidth;
+    const fh = this.reel.frameHeight;
+    const cH = fh / (enterFill * 2 * tan);
+    const cW = fw / (enterFill * aspect * 2 * tan);
     this.closeZ = Math.max(cH, cW);
 
     this._apply();

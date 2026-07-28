@@ -167,15 +167,6 @@
   background-clip: text;
 }
 
-.splash-sub {
-  margin-top: 12px;
-  font-size: clamp(11px, 2vw, 14px);
-  letter-spacing: 6px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
-  font-weight: 300;
-}
-
 /* --- Vignette overlay for cinematic depth --- */
 .splash-vignette {
   position: absolute;
