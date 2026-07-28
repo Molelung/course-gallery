@@ -1,7 +1,10 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  base: process.env.BASE_PATH || "/",
+  // Relative base so the SAME build works whether it is served from
+  // GitHub Pages (/course-gallery/) or CloudFlare (root /).
+  // Pass BASE_PATH explicitly only to override (e.g. an absolute sub-path).
+  base: process.env.BASE_PATH || "./",
 
   plugins: [],
 

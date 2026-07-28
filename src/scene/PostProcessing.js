@@ -10,7 +10,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 const CinematicShader = {
   uniforms: {
     tDiffuse: { value: null },
-    uIntensity: { value: 0.45 },
+    uIntensity: { value: 0.3 },
     uSoftness: { value: 0.55 }
   },
   vertexShader: /* glsl */`
@@ -48,9 +48,9 @@ export default class PostProcessing {
     // Stronger bloom for cinematic glow
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.55,   // strength
+      0.45,   // strength
       0.5,    // radius
-      0.2     // threshold
+      0.32    // threshold
     );
     this.composer.addPass(bloom);
 

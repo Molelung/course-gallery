@@ -1,3 +1,5 @@
+import * as THREE from "three";
+
 /**
  * CarouselController - Interaction controller for the film strip
  * Drives a continuous "offset" (in frame units) that slides the strip horizontally.
@@ -14,6 +16,7 @@ export default class CarouselController {
     // Offset state (in frame units)
     this.currentOffset = 0;
     this.targetOffset = 0;
+    this.vel = 0; // spring velocity → inertia, elastic bow & settle "collision"
 
     // Disabled while the detail view is open
     this.enabled = true;
@@ -42,7 +45,7 @@ export default class CarouselController {
     // Unified pointer drag (mouse + touch)
     window.addEventListener("pointerdown", (e) => {
       if (!this.enabled) return;
-      if (e.target.closest("button") || e.target.closest("#indicators")) return;
+      if (e.target.closest("button") || e.target.closest("a") || e.target.closest("#indicators")) return;
       this.isDragging = true;
       this.dragStartX = e.clientX;
       this.dragStartOffset = this.targetOffset;
@@ -89,6 +92,9 @@ export default class CarouselController {
       target = startFrame + Math.sign(this.flick);
     }
     this.targetOffset = target;
+    // Inertia: a gentle carry of the release velocity — real film glides a
+    // little, it doesn't snap back.
+    this.vel = THREE.MathUtils.clamp(this.flick * 0.3, -0.32, 0.32);
   }
 
   /**
@@ -103,7 +109,9 @@ export default class CarouselController {
    * Jump to a specific frame index via the shortest wrapped path.
    */
   goToFrame(index) {
-    if (!this.enabled) return;
+    // Programmatic jump — intentionally NOT gated by `enabled`, so the menu
+    // and the seamless "next course" flow can move the film while the drag
+    // input is disabled inside the detail view.
     const N = this.frameCount;
     let diff = index - this.targetOffset;
     diff = ((diff % N) + N) % N;
@@ -112,9 +120,18 @@ export default class CarouselController {
   }
 
   update() {
-    // Smooth follow (no free inertia - the target is always a settled frame)
-    this.currentOffset += (this.targetOffset - this.currentOffset) * 0.12;
+    // Spring follow — tuned like film pulled by hand: it glides onto the
+    // frame with almost no overshoot, instead of bouncing back elastically.
+    const stiffness = 0.058;
+    const damping = 0.86;
+    this.vel += (this.targetOffset - this.currentOffset) * stiffness;
+    this.vel *= damping;
+    this.currentOffset += this.vel;
     this.reel.setOffset(this.currentOffset);
+
+    // Elastic bow proportional to travel speed — kept subtle; the reel
+    // itself smooths it further into a paper-like wave.
+    this.reel.setBend(THREE.MathUtils.clamp(this.vel * 0.4, -0.45, 0.45));
 
     // Fire frame-change callback
     const activeIndex = this.reel.getActiveIndex();

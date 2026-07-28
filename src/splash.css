@@ -1,5 +1,11 @@
-/* ===== Splash: Film Reel Opening ===== */
-/* Self-contained styles for the intro splash overlay. */
+/* ===== Splash: Film Scroll Pull-Open ===== */
+/* Self-contained styles for the intro splash overlay.
+   Timeline (driven by SplashAnimation):
+   0.0s  — two film curtains cover the screen, title card fades in
+   1.5s  — .splash-open: curtains are pulled apart like a scroll opening,
+           the title card dissolves, the 3D reel starts unrolling behind
+   3.1s  — .splash-done: whole overlay fades out
+   3.9s  — .splash-hidden: removed from flow */
 
 #splash {
   position: fixed;
@@ -22,98 +28,143 @@
   display: none;
 }
 
-/* --- Film strip halves (left / right curtains) --- */
-.film-strip {
+/* --- Film curtains (the two halves of the "scroll") --- */
+.film-curtain {
   position: absolute;
   top: 0;
-  width: 52%;
+  width: 50.5%;
   height: 100%;
   display: flex;
-  background: #0a0a0a;
-  border: 2px solid #1a1a1a;
+  flex-direction: column;
+  background: #0b0b10;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.9);
+  transition: transform 1.7s cubic-bezier(0.7, 0, 0.2, 1);
+  will-change: transform;
+  z-index: 2;
 }
 
-.film-left {
+.film-curtain-left {
   left: 0;
-  border-right: 3px solid #222;
-  animation: filmOpenLeft 1.8s cubic-bezier(0.65, 0, 0.35, 1) 1.6s forwards;
+  border-right: 2px solid #1e1e26;
 }
 
-.film-right {
+.film-curtain-right {
   right: 0;
-  border-left: 3px solid #222;
-  animation: filmOpenRight 1.8s cubic-bezier(0.65, 0, 0.35, 1) 1.6s forwards;
+  border-left: 2px solid #1e1e26;
 }
 
-@keyframes filmOpenLeft {
-  to { transform: translateX(-105%); }
+/* The pull: each half is dragged outward like film being unrolled */
+#splash.splash-open .film-curtain-left {
+  transform: translateX(-104%);
 }
 
-@keyframes filmOpenRight {
-  to { transform: translateX(105%); }
+#splash.splash-open .film-curtain-right {
+  transform: translateX(104%);
 }
 
-/* --- Sprocket holes along film edges --- */
-.sprockets {
-  width: 28px;
-  min-width: 28px;
-  height: 100%;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 12px,
-    #1a1a1a 12px,
-    #1a1a1a 14px,
-    transparent 14px,
-    transparent 20px,
-    rgba(255, 255, 255, 0.06) 20px,
-    rgba(255, 255, 255, 0.06) 34px,
-    transparent 34px,
-    transparent 40px
-  );
-  position: relative;
-}
-
-.sprockets::after {
-  content: '';
+/* Curled roll edge on the pulling side — reads as the rolled-up film
+   collecting at the edges while the strip is pulled open */
+.curtain-roll {
   position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 16px,
-    rgba(255, 255, 255, 0.04) 16px,
-    rgba(255, 255, 255, 0.04) 30px,
-    transparent 30px,
-    transparent 40px
-  );
-  border-radius: 2px;
+  top: -2%;
+  width: 34px;
+  height: 104%;
+  border-radius: 17px;
+  background: linear-gradient(90deg, #05050a 0%, #23232e 38%, #3a3a48 50%, #16161e 62%, #05050a 100%);
+  box-shadow: 0 0 26px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transform: scaleY(0.6) scaleX(0.4);
+  transition:
+    opacity 0.45s ease 1.42s,
+    transform 1.7s cubic-bezier(0.7, 0, 0.2, 1) 0s;
 }
 
-/* --- Film frames inside strips --- */
-.film-frames {
+.film-curtain-left .curtain-roll { right: -17px; }
+.film-curtain-right .curtain-roll { left: -17px; }
+
+#splash.splash-open .curtain-roll {
+  opacity: 1;
+  transform: scaleY(1) scaleX(1);
+}
+
+/* --- Sprocket-hole bands (top & bottom edges of the film) --- */
+.curtain-sprockets {
+  width: 100%;
+  height: 34px;
+  min-height: 34px;
+  background:
+    repeating-linear-gradient(
+      to right,
+      transparent 0px,
+      transparent 18px,
+      rgba(213, 218, 232, 0.85) 18px,
+      rgba(213, 218, 232, 0.85) 30px,
+      transparent 30px,
+      transparent 48px
+    ),
+    #06060a;
+  background-size: 48px 100%, 100% 100%;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* --- Frame cells between the sprocket bands --- */
+.curtain-frames {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 8px;
+  gap: 8px;
+  padding: 12px 14px;
   justify-content: center;
-}
-
-.film-frame {
-  flex: 1;
-  background: linear-gradient(135deg, #111 0%, #1a1a1a 50%, #0d0d0d 100%);
-  border: 1px solid #222;
-  border-radius: 2px;
-  position: relative;
   overflow: hidden;
 }
 
-.film-frame::after {
+.curtain-frame {
+  flex: 1;
+  max-height: 21vh;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.curtain-frame::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.02) 50%, transparent 60%);
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+.curtain-frame span {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: clamp(11px, 1.4vw, 15px);
+  letter-spacing: 2px;
+  font-weight: 300;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+  padding: 0 12px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Subtle sheen sweeping across the curtains while closed */
+.film-curtain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.05) 50%, transparent 70%);
+  animation: curtainSheen 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes curtainSheen {
+  0%, 100% { transform: translateX(-30%); opacity: 0; }
+  50% { transform: translateX(30%); opacity: 1; }
 }
 
 /* --- Glass card (Apple-style frosted glass) --- */
@@ -133,23 +184,19 @@
     inset 0 -1px 0 rgba(255, 255, 255, 0.05);
   opacity: 0;
   transform: scale(0.9) translateY(10px);
-  animation:
-    glassReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards,
-    glassExit 0.8s ease-in 2.8s forwards;
+  animation: glassReveal 1.0s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+#splash.splash-open .splash-glass {
+  opacity: 0 !important;
+  transform: scale(1.04) translateY(-8px);
 }
 
 @keyframes glassReveal {
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes glassExit {
-  to {
-    opacity: 0;
-    transform: scale(1.05) translateY(-10px);
-    filter: blur(4px);
   }
 }
 
@@ -186,7 +233,7 @@
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
   opacity: 0;
-  animation: taglineFade 0.8s ease 1.2s forwards;
+  animation: taglineFade 0.7s ease 0.6s forwards;
 }
 
 @keyframes taglineFade {
@@ -197,30 +244,9 @@
 .splash-vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.7) 100%);
+  z-index: 4;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.65) 100%);
   pointer-events: none;
-}
-
-/* --- Film grain / scanline flicker --- */
-#splash::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(255, 255, 255, 0.008) 2px,
-    rgba(255, 255, 255, 0.008) 4px
-  );
-  animation: splashFlicker 0.15s infinite alternate;
-  pointer-events: none;
-}
-
-@keyframes splashFlicker {
-  from { opacity: 0.6; }
-  to { opacity: 1; }
 }
 
 /* --- Mobile adjustments --- */
@@ -230,8 +256,12 @@
     border-radius: 18px;
   }
 
-  .sprockets {
-    width: 18px;
-    min-width: 18px;
+  .curtain-sprockets {
+    height: 24px;
+    min-height: 24px;
+  }
+
+  .curtain-frames {
+    padding: 8px 10px;
   }
 }

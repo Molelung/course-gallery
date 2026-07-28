@@ -55,8 +55,10 @@ export default class Camera {
     // How much of the viewport the center frame should fill
     // Mobile: much larger so the film dominates the small screen
     let fill;
-    if (isMobile && isPortrait) fill = 0.82;
-    else if (isPortrait) fill = 0.72;
+    // Mobile portrait: enlarge the film so it feels compact and fills the
+    // screen instead of floating small with empty space around it.
+    if (isMobile && isPortrait) fill = 0.88;
+    else if (isPortrait) fill = 0.74;
     else fill = this.fill;
 
     // The visible strip width (center frame + partial adjacent frames)

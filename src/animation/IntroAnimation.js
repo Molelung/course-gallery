@@ -1,58 +1,62 @@
 /**
- * IntroAnimation - Film reel flies in from distance on load.
- * Supports being triggered externally (e.g. after splash completes)
- * via begin() / waitFor() pattern for loose coupling.
+ * IntroAnimation — the film physically unrolls.
+ *
+ * The reel starts as a coiled roll (FilmReel.unroll = 0) and a damped spring
+ * peels it open into the full winding strip. A slight overshoot at the end
+ * makes the unroll feel like real film settling under tension rather than a
+ * linear tween. Triggered externally (after the splash title fades) via
+ * begin() / waitFor() for loose coupling.
  */
 export default class IntroAnimation {
 
   constructor(object) {
     this.object = object;
-    this.duration = 2.2;
     this.finished = false;
     this._running = false;
-    this._startTime = 0;
 
-    // Hide the film until intro begins
-    this.object.visible = false;
+    // Spring state for the unroll
+    this.u = 0;
+    this.uvel = 0;
+
+    // Show the reel immediately (as a coiled roll) — the splash title sits
+    // on top and fades away to reveal it.
+    this.object.visible = true;
+    this.object.setUnroll(0);
   }
 
-  /**
-   * Wait for an external controller (e.g. SplashAnimation).
-   * The intro won't start until begin() is called.
-   */
+  /** Wait for an external controller (e.g. SplashAnimation). */
   waitFor(_controller) {
-    // The controller's onComplete callback will call begin().
-    // This method exists for semantic clarity in main.js.
     this._running = false;
   }
 
-  /** Trigger the intro animation to start now. */
+  /** Trigger the unroll. */
   begin() {
     if (this._running || this.finished) return;
     this._running = true;
-    this._startTime = performance.now();
-    this.object.visible = true;
   }
 
   update() {
     if (this.finished || !this._running) return;
 
-    const elapsed = (performance.now() - this._startTime) / 1000;
-    const t = Math.min(elapsed / this.duration, 1);
+    // Damped spring toward fully-open — slow enough to read as a hand
+    // pulling the leader out of the roll; the small overshoot at the end is
+    // the film settling under tension, like paper, not a bounce.
+    this.uvel += (1 - this.u) * 0.038;
+    this.uvel *= 0.9;
+    this.u += this.uvel;
 
-    // Smooth ease-out (quart)
-    const ease = 1 - Math.pow(1 - t, 4);
+    // Cinematic entrance: drift in & straighten while it unrolls
+    const e = this.u;
+    this.object.rotation.y = (1 - e) * 0.35;
+    this.object.position.z = (1 - e) * -2.0;
 
-    this.object.position.z = -8 + ease * 8;
-    this.object.scale.setScalar(0.4 + ease * 0.6);
-    // Slight rotation settle for cinematic feel
-    this.object.rotation.y = (1 - ease) * 0.15;
+    this.object.setUnroll(this.u);
 
-    if (t >= 1) {
+    if (Math.abs(1 - this.u) < 0.0015 && Math.abs(this.uvel) < 0.0015) {
       this.finished = true;
-      this.object.position.z = 0;
-      this.object.scale.setScalar(1);
+      this.object.setUnroll(1);
       this.object.rotation.y = 0;
+      this.object.position.z = 0;
     }
   }
 }
