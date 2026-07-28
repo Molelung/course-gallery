@@ -25,11 +25,11 @@ function createGradientBackground() {
   // Depth glow: a wide, soft pool of light low in the frame — the "stage"
   // the film floats above; this is what reads as 景深 behind the model.
   const glow = ctx.createRadialGradient(
-    canvas.width / 2, canvas.height * 0.86, 0,
-    canvas.width / 2, canvas.height * 0.86, canvas.height * 0.42
+    canvas.width / 2, canvas.height * 0.8, 0,
+    canvas.width / 2, canvas.height * 0.8, canvas.height * 0.4
   );
-  glow.addColorStop(0, "rgba(120,170,255,0.34)");
-  glow.addColorStop(0.55, "rgba(80,125,220,0.14)");
+  glow.addColorStop(0, "rgba(120,170,255,0.22)");
+  glow.addColorStop(0.55, "rgba(80,125,220,0.1)");
   glow.addColorStop(1, "rgba(80,125,220,0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, canvas.width, canvas.height);

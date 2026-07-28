@@ -758,7 +758,7 @@ body.detail-mode #hint {
   /* Lift the film up a touch so it doesn't sit dead-center with a big
      empty band above it — reduces the top whitespace on phones. */
   #webgl {
-    transform: translateY(-6vh);
+    transform: translateY(-3vh);
     will-change: transform;
   }
 

@@ -33,7 +33,11 @@ export default class IntroAnimation {
   begin() {
     if (this._running || this.finished) return;
     this._running = true;
-    this._t0 = null; // armed; stamped on the first update
+    // Portrait phones: the roll & early peel are outside the narrow view —
+    // start partway through the ease so the film is already streaming in
+    // from the left edge instead of showing an empty screen for ~1.5s.
+    const portrait = window.innerWidth < window.innerHeight;
+    this._t0 = portrait ? performance.now() - this.duration * 0.35 : null;
   }
 
   /** Fast-forward to the fully laid-out state (click-to-skip). */
