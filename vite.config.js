@@ -1,23 +1,15 @@
 import { defineConfig } from "vite";
 
-
 export default defineConfig({
+  base: process.env.BASE_PATH || "/",
 
-    base: "/course-gallery/",
+  server: {
+    port: 3000,
+    open: true
+  },
 
-    server: {
-
-        port: 3000,
-
-        open: true
-
-    },
-
-
-    build: {
-
-        target: "esnext"
-
-    }
-
+  build: {
+    target: "es2020",
+    outDir: "dist"
+  }
 });

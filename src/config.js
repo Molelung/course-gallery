@@ -34,13 +34,17 @@ export const CONFIG = {
         FAR:100,
 
 
+        // Fraction of the smaller viewport dimension the active frame fills
+        FILL:0.5,
+
+
         POSITION:{
 
 
             x:0,
 
 
-            y:0.8,
+            y:0.2,
 
 
             z:5

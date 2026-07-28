@@ -1,76 +1,78 @@
 <!DOCTYPE html>
-
 <html lang="zh-CN">
-
-
 <head>
-
-<meta charset="UTF-8">
-
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
-
-
-<title>
-Film Experience
-</title>
-
-
-<link rel="stylesheet"
-href="/src/style.css">
-
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Film Experience</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+  <link rel="stylesheet" href="/src/splash.css">
 </head>
-
-
-
 <body>
 
+  <!-- Loading -->
+  <div id="loader">
+    <span>LOADING</span>
+  </div>
 
-<!-- Loading -->
+  <!-- Splash: Film Reel Opening -->
+  <div id="splash">
+    <div class="film-strip film-left">
+      <div class="sprockets"></div>
+      <div class="film-frames">
+        <div class="film-frame"></div><div class="film-frame"></div>
+        <div class="film-frame"></div><div class="film-frame"></div>
+        <div class="film-frame"></div><div class="film-frame"></div>
+      </div>
+      <div class="sprockets"></div>
+    </div>
+    <div class="film-strip film-right">
+      <div class="sprockets"></div>
+      <div class="film-frames">
+        <div class="film-frame"></div><div class="film-frame"></div>
+        <div class="film-frame"></div><div class="film-frame"></div>
+        <div class="film-frame"></div><div class="film-frame"></div>
+      </div>
+      <div class="sprockets"></div>
+    </div>
+    <div class="splash-glass">
+      <h1 class="splash-title">Welcome to Course Gallery</h1>
+      <p class="splash-sub">A Cinematic Experience</p>
+    </div>
+    <div class="splash-vignette"></div>
+  </div>
 
-<div id="loader">
+  <!-- WebGL -->
+  <canvas id="webgl"></canvas>
 
-<span>
-LOADING
-</span>
+  <!-- Navigation Arrows -->
+  <button class="nav-arrow nav-prev" aria-label="Previous">&#8592;</button>
+  <button class="nav-arrow nav-next" aria-label="Next">&#8594;</button>
 
-</div>
+  <!-- Frame Info -->
+  <div id="frame-info">
+    <h2 id="frame-title">Project Alpha</h2>
+    <p id="frame-subtitle">Interactive Experience</p>
+  </div>
 
+  <!-- Dot Indicators -->
+  <div id="indicators"></div>
 
+  <!-- Interaction Hint -->
+  <div id="hint">SCROLL OR CLICK TO ENTER</div>
 
-<!-- WebGL -->
+  <!-- Detail View Overlay -->
+  <div id="detail">
+    <button id="detail-back" aria-label="Back">&#8592; BACK</button>
+    <div id="detail-content">
+      <h1 id="detail-title"></h1>
+      <p id="detail-subtitle"></p>
+      <p id="detail-desc"></p>
+    </div>
+  </div>
 
-<canvas id="webgl"></canvas>
-
-
-
-<!-- UI -->
-
-<div id="intro">
-
-
-<h1>
-FILM
-</h1>
-
-
-<p>
-A DIGITAL FILM EXPERIENCE
-</p>
-
-
-</div>
-
-
-
-<script type="module"
-src="/src/main.js">
-</script>
-
-
+  <script type="module" src="/src/main.js"></script>
 </body>
-
-
 </html>
