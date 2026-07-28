@@ -1,37 +1,39 @@
-import { getDefaultFrames } from "../utils/CanvasTexture.js";
-
 /**
- * SplashAnimation — the film scroll is pulled open.
+ * SplashAnimation — pure-3D film pull-open.
  *
- * Act 1 (0 → holdDuration): two film curtains cover the screen — real film,
- * sprocket holes and course frames — with the title card floating on top.
- * Act 2 (the pull): the curtains are dragged apart like a scroll being
- * unrolled, a curled roll-edge collecting on each side; at the same instant
- * onComplete fires so the coiled 3D reel behind begins to unroll — one
- * continuous "the film is being pulled open" motion across 2D and 3D.
- * Act 3 (fadeDuration later): the overlay fades out and leaves the DOM.
+ * The overlay is transparent: the coiled 3D film roll behind it is the
+ * splash visual. Only a glass title card floats on top.
+ *
+ * Act 1 (0 → holdDuration): title card over the coiled roll.
+ * Act 2 (the pull): card + vignette dissolve; onComplete fires so the 3D
+ * reel starts spooling out from one end across the screen.
+ * Act 3: the overlay fades out and leaves the DOM.
+ *
+ * Click anywhere to skip — onSkip fast-forwards the 3D intro to the end.
  */
 export default class SplashAnimation {
 
   /**
    * @param {Object} options
-   * @param {number} options.holdDuration - ms before the pull starts (default 1500)
-   * @param {number} options.pullDuration - ms for the curtain pull (default 1700)
-   * @param {number} options.fadeDuration - ms for the final fade (default 800)
+   * @param {number} options.holdDuration - ms before the pull starts (default 1200)
+   * @param {number} options.pullDuration - ms for the 3D pull (default 2200)
+   * @param {number} options.fadeDuration - ms for the final fade (default 600)
    * @param {Function} options.onComplete - called the moment the pull begins
+   * @param {Function} options.onSkip - called when the user clicks to skip
    */
   constructor(options = {}) {
-    this.holdDuration = options.holdDuration ?? 1500;
-    this.pullDuration = options.pullDuration ?? 1700;
-    this.fadeDuration = options.fadeDuration ?? 800;
+    this.holdDuration = options.holdDuration ?? 1200;
+    this.pullDuration = options.pullDuration ?? 2200;
+    this.fadeDuration = options.fadeDuration ?? 600;
     this.onComplete = options.onComplete ?? null;
+    this.onSkip = options.onSkip ?? null;
 
     this.el = document.querySelector("#splash");
     this._done = false;
     this._timers = [];
 
     if (this.el) {
-      this._buildCurtains();
+      this.el.addEventListener("click", () => this.skip());
       this._schedule();
     }
   }
@@ -41,35 +43,14 @@ export default class SplashAnimation {
     return this.holdDuration + this.pullDuration + this.fadeDuration + 100;
   }
 
-  /** Fill the curtain halves with mini course frames from real frame data. */
-  _buildCurtains() {
-    const frames = getDefaultFrames();
-    const left = document.querySelector("#curtain-frames-left");
-    const right = document.querySelector("#curtain-frames-right");
-    if (!left || !right) return;
-
-    // 4 cells per curtain, taken from alternating courses
-    for (let i = 0; i < 8; i++) {
-      const f = frames[i % frames.length];
-      const cell = document.createElement("div");
-      cell.className = "curtain-frame";
-      cell.style.background =
-        `linear-gradient(135deg, ${f.colorA} 0%, ${f.colorB} 100%)`;
-      const label = document.createElement("span");
-      label.textContent = f.title;
-      cell.appendChild(label);
-      (i % 2 === 0 ? left : right).appendChild(cell);
-    }
-  }
-
   _schedule() {
-    // Act 2 — the pull: curtains apart, title dissolves, 3D unroll begins
+    // Act 2 — the pull: card dissolves, 3D spool-out begins
     this._timers.push(setTimeout(() => {
       this.el.classList.add("splash-open");
       if (this.onComplete) this.onComplete();
     }, this.holdDuration));
 
-    // Act 3 — fade the whole overlay once the pull has mostly finished
+    // Act 3 — fade the overlay once the pull has mostly finished
     this._timers.push(setTimeout(() => {
       this.el.classList.add("splash-done");
     }, this.holdDuration + this.pullDuration));
@@ -80,13 +61,14 @@ export default class SplashAnimation {
     }, this.holdDuration + this.pullDuration + this.fadeDuration));
   }
 
-  /** Skip the splash immediately. */
+  /** Skip immediately: hide the overlay and fast-forward the 3D intro. */
   skip() {
     if (this._done || !this.el) return;
     this._timers.forEach(clearTimeout);
     this.el.classList.add("splash-open", "splash-done", "splash-hidden");
     this._done = true;
-    if (this.onComplete) this.onComplete();
+    if (this.onSkip) this.onSkip();
+    else if (this.onComplete) this.onComplete();
   }
 
   destroy() {

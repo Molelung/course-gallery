@@ -442,11 +442,33 @@ body.simple-mode #hint {
   justify-content: center;
   align-items: center;
   background: #020202;
-  color: white;
-  letter-spacing: 8px;
-  font-size: 14px;
   z-index: 200;
   transition: opacity 1s ease;
+}
+
+/* Wordless pulsing dot (like a single sprocket hole) */
+#loader span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #cdd3e2;
+  box-shadow: 0 0 18px rgba(205, 211, 226, 0.9);
+  animation: loaderPulse 1s ease-in-out infinite;
+}
+
+@keyframes loaderPulse {
+  0%, 100% { transform: scale(0.6); opacity: 0.4; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+/* ===== UI chrome hidden until the opening pull begins ===== */
+body.intro-pending #site-header,
+body.intro-pending .nav-arrow,
+body.intro-pending #frame-info,
+body.intro-pending #indicators,
+body.intro-pending #hint {
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* ===== Navigation Arrows ===== */

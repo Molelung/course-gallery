@@ -54,25 +54,25 @@ export default class FilmReel extends THREE.Group {
   }
 
   /**
-   * Winding path — like a river: the strip meanders forward & backward in
-   * depth (not monotonic), so the distant film appears to wander behind
-   * itself before dissolving into the fog. Centre faces the camera.
+   * Winding path — shader.se style: the strip is essentially flat & upright
+   * at the active frame, receding smoothly on both sides with only a gentle
+   * S so the tails feel like a river rather than a ramp. Depth reads come
+   * from the taper + fog, not from aggressive Z swings (those twisted the
+   * ribbon and looked broken).
    */
   _buildPath() {
     const pts = [
-      new THREE.Vector3(-11.5, -1.9, -30.0),
-      new THREE.Vector3(-9.0, -1.45, -16.5),
-      new THREE.Vector3(-6.6, -1.00, -20.5),  // swings back — meander
-      new THREE.Vector3(-4.8, -0.60, -10.5),
-      new THREE.Vector3(-2.8, -0.25,  -4.6),
-      new THREE.Vector3(-1.2, -0.05,  -1.4),
+      new THREE.Vector3(-10.5, -1.55, -21.0),
+      new THREE.Vector3(-7.8, -1.05, -12.5),
+      new THREE.Vector3(-5.4, -0.60,  -8.8),
+      new THREE.Vector3(-3.2, -0.22,  -4.2),
+      new THREE.Vector3(-1.4, -0.05,  -1.3),
       new THREE.Vector3( 0.0,  0.00,   0.0),
-      new THREE.Vector3( 1.2,  0.05,  -1.6),
-      new THREE.Vector3( 2.8,  0.25,  -5.0),
-      new THREE.Vector3( 4.8,  0.60, -10.0),
-      new THREE.Vector3( 6.6,  1.00,  -7.6),  // swings forward — meander
-      new THREE.Vector3( 9.0,  1.45, -16.0),
-      new THREE.Vector3(11.5,  1.90, -29.0)
+      new THREE.Vector3( 1.4,  0.05,  -1.4),
+      new THREE.Vector3( 3.2,  0.22,  -4.4),
+      new THREE.Vector3( 5.4,  0.60,  -8.2),  // soft forward hook — the river bend
+      new THREE.Vector3( 7.8,  1.05, -12.6),
+      new THREE.Vector3(10.5,  1.55, -21.0)
     ];
     this.curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.5);
     this.pathLength = this.curve.getLength();
@@ -131,8 +131,8 @@ export default class FilmReel extends THREE.Group {
       // Gentle brightness falloff — distant film dims but its content stays
       // readable; the final disappearance is handled by scene fog instead.
       const dNorm = Math.abs(i - centerIdx) / (SEGMENTS * 0.5);
-      let b = 1.0 - Math.pow(dNorm, 2.1) * 0.68;
-      b = THREE.MathUtils.clamp(b, 0.32, 1.0);
+      let b = 1.0 - Math.pow(dNorm, 2.1) * 0.62;
+      b = THREE.MathUtils.clamp(b, 0.38, 1.0);
       colors.push(b, b, b, b, b, b);
 
       if (i < SEGMENTS) {
@@ -213,47 +213,66 @@ export default class FilmReel extends THREE.Group {
   }
 
   /**
-   * Recompute vertex positions each frame: blend between the coiled roll and
-   * the flat winding path (driven by `unroll`), plus the elastic `bend`, a
-   * distance taper (the strip grows thinner as it recedes, like a river
-   * narrowing toward the horizon) and a gentle paper-like sway.
-   * Cheap: only positions are rewritten (normals stay from the flat build).
+   * Recompute vertex positions each frame.
+   *
+   * Pull-from-one-end unroll: at unroll=0 the whole strip is coiled into a
+   * standing roll at the strip's left tail; the peel point travels along the
+   * path toward the right tail as `unroll` grows, so the film reads as being
+   * pulled out of the roll and laid across the screen. On top of that:
+   * elastic `bend`, a distance taper (the strip narrows as it recedes) and a
+   * gentle paper-like sway. Only positions are rewritten each frame.
    */
   _applyMorph() {
     const posAttr = this.strip.geometry.attributes.position;
     const arr = posAttr.array;
-    const maxDist = this.pathLength * 0.5;
-    const band = maxDist * 0.16;
-    // Peel point travels from "-band" (fully rolled) to past the far end
-    const reach = -band + this.unroll * (maxDist + band * 2.2);
-    const R0 = 1.55;         // outer radius of the rolled reel
+    const L = this.pathLength;
+    const halfL = L * 0.5;
+    const band = L * 0.07;
+    // Peel travels from just before the left tail to just past the right tail
+    const peel = -halfL - band + this.unroll * (L + band * 2);
+    const maxDist = halfL;
     const halfH = STRIP_H / 2;
     const t = this._elapsed;
+
+    // The roll MOVES WITH the peel point — like unrolling a scroll / carpet:
+    // it stands at the leading edge of the laid film, spinning and shrinking
+    // as the film pays out, until nothing is left at the far end.
+    const tPos = THREE.MathUtils.clamp((peel + halfL) / L, 0, 1);
+    const fIdx = tPos * SEGMENTS;
+    const i0 = Math.min(SEGMENTS - 1, Math.floor(fIdx));
+    const i1 = i0 + 1;
+    const fR = fIdx - i0;
+    const pa = this.basePts[i0];
+    const pb = this.basePts[i1];
+    const rcx = pa.x + (pb.x - pa.x) * fR;
+    const rcy = pa.y + (pb.y - pa.y) * fR + 0.1;
+    const rcz = pa.z + (pb.z - pa.z) * fR - 0.55; // tucks behind the laid film
+    const R = Math.max(0.12, 1.0 * (1 - this.unroll) + 0.1); // shrinking roll
+    const TURNS = 4.5;           // spiral turns from peel to core
+    const spin = this.unroll * 4.2; // the roll visibly rotates as it unwinds
 
     for (let i = 0; i <= SEGMENTS; i++) {
       const sd = this.segDist[i];
       const ad = Math.abs(sd);
 
-      // 1 = laid flat, 0 = still on the roll
-      const fw = 1 - THREE.MathUtils.smoothstep(ad, reach, reach + band);
+      // 1 = laid flat (sd already passed by the peel), 0 = still on the roll
+      const fw = 1 - THREE.MathUtils.smoothstep(sd, peel, peel + band);
 
-      // --- Rolled (coil) position ---
-      const over = Math.max(0, ad - reach);
-      const layer = Math.min(1, over / maxDist);           // 0 peel → 1 deep core
-      const radius = Math.max(0.1, R0 * (1 - layer * 0.86));
-      const dir = sd >= 0 ? 1 : -1;
-      const ang = (dir > 0 ? 0 : Math.PI) + layer * Math.PI * 5.0 + this.unroll * 2.2;
-      const cx = Math.cos(ang) * radius;
-      const cy = Math.sin(ang) * radius * 0.9;
-      const cz = -0.35 - layer * 1.1;
+      // --- Rolled position: standing roll (vertical axis) at the peel point ---
+      const over = Math.max(0, sd - peel);
+      const layer = Math.min(1, over / L);                  // 0 peel → 1 core
+      const radius = Math.max(0.08, R * (1 - layer * 0.8));
+      const ang = layer * Math.PI * 2 * TURNS - spin;
+      const cx = rcx + Math.cos(ang) * radius;
+      const cy = rcy;
+      const cz = rcz + Math.sin(ang) * radius * 0.92;
 
       // --- Flat position + elastic bend + paper sway ---
       const bp = this.basePts[i];
       const nd = sd / maxDist;
 
       // Paper sway: two slow sine waves drifting along the strip; pinned at
-      // the active frame, growing gently with distance — like a loose sheet
-      // of film breathing, never springy.
+      // the active frame, growing gently with distance.
       const swayAmp = Math.min(1, ad / 5);
       const swayY = (Math.sin(t * 0.62 + sd * 0.55) * 0.05 +
                      Math.sin(t * 1.07 + sd * 0.23 + 1.7) * 0.028) * swayAmp;
@@ -267,8 +286,8 @@ export default class FilmReel extends THREE.Group {
       const Y = fy * fw + cy * (1 - fw);
       const Z = fz * fw + cz * (1 - fw);
 
-      // Distance taper: the film narrows as it winds away (≈45% at the far
-      // ends) — reads as a real strip receding, thinner but still visible.
+      // Distance taper: the film narrows as it winds away — thinner, but
+      // still visible, until the fog dissolves it.
       const taper = 1 / (1 + ad * 0.058);
       const hh = halfH * taper;
 
@@ -284,6 +303,11 @@ export default class FilmReel extends THREE.Group {
     this._elapsed = elapsed || 0;
     // Paper-damped follow for the elastic bow: heavy smoothing, no snap-back
     this.bend += (this.bendTarget - this.bend) * 0.055;
+    // The coiled roll glows like a lightbox so it reads in the dark; the
+    // glow settles to normal backlit-film level once laid out.
+    if (this.strip && this.strip.material) {
+      this.strip.material.emissiveIntensity = 0.2 + (1 - this.unroll) * 0.3;
+    }
     this._applyMorph();
     if (this.dust) this.dust.rotation.y += (delta || 0.016) * 0.02;
   }

@@ -42,22 +42,30 @@ const postProcessing = new PostProcessing(
 const intro = new IntroAnimation(film);
 const interaction = new Interaction(camera.camera);
 
-// Splash screen: film reel opens, then triggers the 3D intro + heading
+// Hide the UI chrome until the pull begins
+document.body.classList.add("intro-pending");
+const revealChrome = () => document.body.classList.remove("intro-pending");
+
+// Splash: title card over the coiled roll; the pull starts the 3D unroll
 const splash = new SplashAnimation({
   onComplete: () => {
     intro.begin();
+    revealChrome();
+  },
+  onSkip: () => {
+    intro.skipToEnd();
+    revealChrome();
   }
 });
-intro.waitFor(splash);
 
 // Debug hook: ?flat skips the splash & unroll so the laid-out film shows at once
 if (new URLSearchParams(location.search).has("flat")) {
   splash.skip();
-  intro.finished = true;
-  film.setUnroll(1);
-  film.rotation.y = 0;
-  film.position.z = 0;
 }
+
+// Debug handles for headless verification
+window.__film = film;
+window.__intro = intro;
 
 // Frame data for UI updates
 const frameData = getDefaultFrames();
@@ -230,6 +238,15 @@ function animate() {
   interaction.update();
   carousel.update();
   detail.update();
+
+  // Fog ramps in as the film unrolls: the opening roll is far away and must
+  // stay visible; once the strip is laid out, the tails dissolve into fog.
+  const fog = sceneManager.scene.fog;
+  if (fog) {
+    const u = film.unroll;
+    fog.near = 9.5 + (1 - u) * 8;
+    fog.far = 27 + (1 - u) * 40;
+  }
 
   // Simple mode hides the WebGL canvas entirely — skip the 3D render to
   // save battery/GPU until the user returns to the full experience.

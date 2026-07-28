@@ -1,11 +1,13 @@
-/* ===== Splash: Film Scroll Pull-Open ===== */
-/* Self-contained styles for the intro splash overlay.
+/* ===== Splash: Pure-3D Film Pull-Open ===== */
+/* The overlay itself is transparent — the 3D film roll behind it IS the
+   splash. Only a glass title card floats on top; when the pull begins the
+   card dissolves and the reel starts spooling out.
    Timeline (driven by SplashAnimation):
-   0.0s  — two film curtains cover the screen, title card fades in
-   1.5s  — .splash-open: curtains are pulled apart like a scroll opening,
-           the title card dissolves, the 3D reel starts unrolling behind
-   3.1s  — .splash-done: whole overlay fades out
-   3.9s  — .splash-hidden: removed from flow */
+   0.0s  — title card fades in over the coiled 3D roll
+   1.2s  — .splash-open: card + vignette dissolve, 3D pull begins
+   3.4s  — .splash-done: overlay fades out
+   4.0s  — .splash-hidden: removed from flow
+   Click anywhere at any time to skip. */
 
 #splash {
   position: fixed;
@@ -14,157 +16,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #000;
+  background: transparent;
   overflow: hidden;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 #splash.splash-done {
   opacity: 0;
-  transition: opacity 0.8s ease;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
 }
 
 #splash.splash-hidden {
   display: none;
-}
-
-/* --- Film curtains (the two halves of the "scroll") --- */
-.film-curtain {
-  position: absolute;
-  top: 0;
-  width: 50.5%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: #0b0b10;
-  box-shadow: 0 0 60px rgba(0, 0, 0, 0.9);
-  transition: transform 1.7s cubic-bezier(0.7, 0, 0.2, 1);
-  will-change: transform;
-  z-index: 2;
-}
-
-.film-curtain-left {
-  left: 0;
-  border-right: 2px solid #1e1e26;
-}
-
-.film-curtain-right {
-  right: 0;
-  border-left: 2px solid #1e1e26;
-}
-
-/* The pull: each half is dragged outward like film being unrolled */
-#splash.splash-open .film-curtain-left {
-  transform: translateX(-104%);
-}
-
-#splash.splash-open .film-curtain-right {
-  transform: translateX(104%);
-}
-
-/* Curled roll edge on the pulling side — reads as the rolled-up film
-   collecting at the edges while the strip is pulled open */
-.curtain-roll {
-  position: absolute;
-  top: -2%;
-  width: 34px;
-  height: 104%;
-  border-radius: 17px;
-  background: linear-gradient(90deg, #05050a 0%, #23232e 38%, #3a3a48 50%, #16161e 62%, #05050a 100%);
-  box-shadow: 0 0 26px rgba(0, 0, 0, 0.85);
-  opacity: 0;
-  transform: scaleY(0.6) scaleX(0.4);
-  transition:
-    opacity 0.45s ease 1.42s,
-    transform 1.7s cubic-bezier(0.7, 0, 0.2, 1) 0s;
-}
-
-.film-curtain-left .curtain-roll { right: -17px; }
-.film-curtain-right .curtain-roll { left: -17px; }
-
-#splash.splash-open .curtain-roll {
-  opacity: 1;
-  transform: scaleY(1) scaleX(1);
-}
-
-/* --- Sprocket-hole bands (top & bottom edges of the film) --- */
-.curtain-sprockets {
-  width: 100%;
-  height: 34px;
-  min-height: 34px;
-  background:
-    repeating-linear-gradient(
-      to right,
-      transparent 0px,
-      transparent 18px,
-      rgba(213, 218, 232, 0.85) 18px,
-      rgba(213, 218, 232, 0.85) 30px,
-      transparent 30px,
-      transparent 48px
-    ),
-    #06060a;
-  background-size: 48px 100%, 100% 100%;
-  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.05);
-}
-
-/* --- Frame cells between the sprocket bands --- */
-.curtain-frames {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.curtain-frame {
-  flex: 1;
-  max-height: 21vh;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.curtain-frame::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
-}
-
-.curtain-frame span {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: clamp(11px, 1.4vw, 15px);
-  letter-spacing: 2px;
-  font-weight: 300;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
-  padding: 0 12px;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-/* Subtle sheen sweeping across the curtains while closed */
-.film-curtain::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.05) 50%, transparent 70%);
-  animation: curtainSheen 2.8s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes curtainSheen {
-  0%, 100% { transform: translateX(-30%); opacity: 0; }
-  50% { transform: translateX(30%); opacity: 1; }
 }
 
 /* --- Glass card (Apple-style frosted glass) --- */
@@ -174,7 +39,7 @@
   text-align: center;
   padding: 48px 64px;
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(10, 12, 24, 0.32);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -183,14 +48,14 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 -1px 0 rgba(255, 255, 255, 0.05);
   opacity: 0;
-  transform: scale(0.9) translateY(10px);
-  animation: glassReveal 1.0s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
-  transition: opacity 0.45s ease, transform 0.45s ease;
+  transform: scale(0.92) translateY(10px);
+  animation: glassReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards;
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
 #splash.splash-open .splash-glass {
   opacity: 0 !important;
-  transform: scale(1.04) translateY(-8px);
+  transform: scale(1.05) translateY(-10px);
 }
 
 @keyframes glassReveal {
@@ -245,8 +110,13 @@
   position: absolute;
   inset: 0;
   z-index: 4;
-  background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.65) 100%);
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
   pointer-events: none;
+  transition: opacity 0.9s ease;
+}
+
+#splash.splash-open .splash-vignette {
+  opacity: 0;
 }
 
 /* --- Mobile adjustments --- */
@@ -254,14 +124,5 @@
   .splash-glass {
     padding: 32px 28px;
     border-radius: 18px;
-  }
-
-  .curtain-sprockets {
-    height: 24px;
-    min-height: 24px;
-  }
-
-  .curtain-frames {
-    padding: 8px 10px;
   }
 }
