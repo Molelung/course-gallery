@@ -13,6 +13,56 @@ import DetailView from "./animation/DetailView.js";
 import { getDefaultFrames } from "./utils/CanvasTexture.js";
 
 //////////////////////////////////////////////////
+// Side Menu Toggle
+////////////////////////////////////////////////////
+
+const menuToggle = document.querySelector(".menu-toggle");
+const menuClose = document.querySelector(".menu-close");
+const menuOverlay = document.querySelector("#menu-overlay");
+const menuLinks = document.querySelectorAll(".menu-list a");
+
+function openMenu() {
+  document.body.classList.add("menu-open");
+}
+
+function closeMenu() {
+  document.body.classList.remove("menu-open");
+}
+
+if (menuToggle) menuToggle.addEventListener("click", openMenu);
+if (menuClose) menuClose.addEventListener("click", closeMenu);
+if (menuOverlay) menuOverlay.addEventListener("click", closeMenu);
+
+menuLinks.forEach((link) => {
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeMenu();
+  });
+});
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && document.body.classList.contains("menu-open")) {
+    closeMenu();
+  }
+});
+
+//////////////////////////////////////////////////
+// Section Heading: show briefly then fade out when intro begins
+////////////////////////////////////////////////////
+
+const sectionHeading = document.querySelector("#section-heading");
+let headingShown = false;
+
+function showHeading() {
+  if (headingShown || !sectionHeading) return;
+  headingShown = true;
+  sectionHeading.classList.add("visible");
+  setTimeout(() => {
+    sectionHeading.classList.remove("visible");
+  }, 4000);
+}
+
+//////////////////////////////////////////////////
 // Init
 //////////////////////////////////////////////////
 
@@ -36,9 +86,12 @@ const postProcessing = new PostProcessing(
 const intro = new IntroAnimation(film);
 const interaction = new Interaction(camera.camera);
 
-// Splash screen: film reel opens, then triggers the 3D intro
+// Splash screen: film reel opens, then triggers the 3D intro + heading
 const splash = new SplashAnimation({
-  onComplete: () => intro.begin()
+  onComplete: () => {
+    intro.begin();
+    showHeading();
+  }
 });
 intro.waitFor(splash);
 

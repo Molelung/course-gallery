@@ -116,11 +116,19 @@ export default class DetailView {
     this.active = true;
     this.carousel.enabled = false;
 
-    // Fill the overlay with the active project's data
+    // Fill the overlay with the active module's data
     const data = this.frameData[this.reel.getActiveIndex()];
     document.querySelector("#detail-title").textContent = data.title;
     document.querySelector("#detail-subtitle").textContent = data.subtitle;
     document.querySelector("#detail-desc").textContent = data.desc || "";
+    document.querySelector("#detail-tags").textContent = data.tags || "";
+    const linkEl = document.querySelector("#detail-link");
+    if (data.link) {
+      linkEl.href = data.link;
+      linkEl.style.display = "inline-block";
+    } else {
+      linkEl.style.display = "none";
+    }
 
     document.body.classList.add("detail-mode");
   }

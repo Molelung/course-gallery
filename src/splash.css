@@ -153,6 +153,18 @@
   }
 }
 
+.splash-glass::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  margin: 0 auto 20px;
+  background: linear-gradient(90deg,
+    #ff006e 0%, #ff7b00 16%, #ffd60a 32%,
+    #06ffa5 48%, #00b4d8 64%, #7209b7 80%, #f72585 100%);
+}
+
 .splash-title {
   font-family: 'Dancing Script', cursive;
   font-size: clamp(32px, 6vw, 64px);
@@ -165,6 +177,20 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.splash-tagline {
+  margin-top: 14px;
+  font-size: clamp(11px, 1.6vw, 14px);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  opacity: 0;
+  animation: taglineFade 0.8s ease 1.2s forwards;
+}
+
+@keyframes taglineFade {
+  to { opacity: 1; }
 }
 
 /* --- Vignette overlay for cinematic depth --- */

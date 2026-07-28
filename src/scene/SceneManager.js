@@ -7,18 +7,34 @@ import * as THREE from "three";
  */
 function createGradientBackground() {
   const canvas = document.createElement("canvas");
-  canvas.width = 32;
+  canvas.width = 64;
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
 
+  // Deeper, richer gradient — shader.se style dark blue night sky
   const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  grad.addColorStop(0, "#05070f");
-  grad.addColorStop(0.35, "#0d1633");
-  grad.addColorStop(0.6, "#1b3161");
-  grad.addColorStop(0.82, "#33568f");
-  grad.addColorStop(1, "#5a82b8");
+  grad.addColorStop(0, "#030610");
+  grad.addColorStop(0.25, "#070d1f");
+  grad.addColorStop(0.5, "#0c1838");
+  grad.addColorStop(0.72, "#1a3260");
+  grad.addColorStop(0.88, "#33558f");
+  grad.addColorStop(1, "#4a72a8");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Subtle starfield noise in the upper portion
+  ctx.globalAlpha = 0.6;
+  for (let i = 0; i < 120; i++) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height * 0.55;
+    const r = Math.random() * 0.8 + 0.2;
+    const a = Math.random() * 0.5 + 0.15;
+    ctx.fillStyle = `rgba(255,255,255,${a})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;

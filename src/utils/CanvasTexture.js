@@ -1,19 +1,61 @@
 import * as THREE from "three";
 
-// Default color schemes for each frame
+// Course module data — each frame showcases a coding course topic
 const SCHEMES = [
-  { title: "Project Alpha", subtitle: "Interactive Experience", colorA: "#1a2a6c", colorB: "#b21f1f",
-    desc: "An immersive interactive experience built with WebGL and Three.js, exploring real-time 3D storytelling in the browser." },
-  { title: "Project Beta", subtitle: "3D Visualization", colorA: "#0f2027", colorB: "#2c5364",
-    desc: "A data-driven 3D visualization that turns complex datasets into intuitive spatial graphics." },
-  { title: "Project Gamma", subtitle: "Creative Coding", colorA: "#4a0e4e", colorB: "#f7b733",
-    desc: "Creative coding experiments blending generative art, shaders and playful interaction." },
-  { title: "Project Delta", subtitle: "WebGL Experiment", colorA: "#1d4350", colorB: "#a43931",
-    desc: "A WebGL experiment pushing custom shaders and post-processing to their limits." },
-  { title: "Project Epsilon", subtitle: "Motion Design", colorA: "#0b486b", colorB: "#f56217",
-    desc: "A motion design study focused on rhythm, easing and cinematic transitions." },
-  { title: "Project Zeta", subtitle: "Digital Art", colorA: "#360033", colorB: "#0b8793",
-    desc: "A digital art collection rendered in real time, where code becomes the brush." }
+  {
+    title: "WebGL Fundamentals",
+    subtitle: "3D Graphics Intro · View module",
+    colorA: "#0f0c29",
+    colorB: "#7a1fa2",
+    tags: "WebGL · Canvas · 3D",
+    desc: "从零开始掌握 WebGL 渲染管线。理解顶点缓冲、着色器编译、纹理映射与帧缓冲对象，亲手绘制你的第一个 3D 场景。",
+    link: "https://developer.mozilla.org/zh-CN/docs/Web/API/WebGL_API"
+  },
+  {
+    title: "Three.js Mastery",
+    subtitle: "3D Framework · View module",
+    colorA: "#0d1b2a",
+    colorB: "#1b9aaa",
+    tags: "Three.js · Scene Graph · PBR",
+    desc: "使用 Three.js 搭建完整的 3D 交互场景。从场景图、光照模型到 PBR 材质，再到后处理特效，打造电影级视觉体验。",
+    link: "https://threejs.org/"
+  },
+  {
+    title: "Shader Programming",
+    subtitle: "GLSL Essentials · View module",
+    colorA: "#1a0033",
+    colorB: "#ff006e",
+    tags: "GLSL · Fragment · Vertex",
+    desc: "深入 GLSL 着色器编程，从顶点到片元。掌握噪声函数、光线追踪、体积渲染等高级技巧，用代码书写光影诗篇。",
+    link: "https://thebookofshaders.com/"
+  },
+  {
+    title: "Creative Coding",
+    subtitle: "Generative Art · View module",
+    colorA: "#2d0a3e",
+    colorB: "#f9a826",
+    tags: "p5.js · Generative · Art",
+    desc: "当代码遇见艺术。学习用算法生成图案、粒子系统与生长动画，探索随机性与约束之间的美学平衡。",
+    link: "https://p5js.org/"
+  },
+  {
+    title: "Motion Design",
+    subtitle: "Animation Study · View module",
+    colorA: "#0b2530",
+    colorB: "#e85d04",
+    tags: "Easing · Timeline · Tween",
+    desc: "研究运动节奏与缓动曲线，掌握关键帧动画、时间轴编排与电影级转场技巧，让界面富有呼吸感与生命力。",
+    link: "https://easings.net/"
+  },
+  {
+    title: "Interactive 3D",
+    subtitle: "WebXR Experience · View module",
+    colorA: "#022c43",
+    colorB: "#0593d2",
+    tags: "WebXR · AR · VR",
+    desc: "探索 Web 端的沉浸式体验。理解相机控制、光线投射、手势交互与设备适配，构建跨平台的 3D 交互应用。",
+    link: "https://developer.mozilla.org/zh-CN/docs/Web/API/WebXR_Device_API"
+  }
 ];
 
 /**
@@ -183,7 +225,7 @@ export function createFilmStripTexture(frames, proportions) {
     ctx.font = `600 ${Math.round(borderH * 0.3)}px 'Courier New', monospace`;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(`COURSE GALLERY 35MM  \u25b8 ${String(i + 1).padStart(2, "0")}A`,
+    ctx.fillText(`COURSE GALLERY · 35MM · ${String(i + 1).padStart(2, "0")}A`,
       x0 + TILE * 0.06, TILE - borderH / 2 + borderH * 0.02);
 
     // ---- Frame content ----
@@ -204,23 +246,42 @@ export function createFilmStripTexture(frames, proportions) {
       ctx.beginPath(); ctx.moveTo(cx, contentY + gy); ctx.lineTo(cx + contentW, contentY + gy); ctx.stroke();
     }
 
-    // Decorative circle
-    ctx.beginPath();
-    ctx.arc(cx + contentW * 0.74, contentY + contentH * 0.32, contentH * 0.2, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,255,255,0.08)";
-    ctx.fill();
+    // Decorative glow orb
+    const orbR = contentH * 0.2;
+    const orbX = cx + contentW * 0.74;
+    const orbY = contentY + contentH * 0.32;
+    const orbGrad = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, orbR);
+    orbGrad.addColorStop(0, "rgba(255,255,255,0.18)");
+    orbGrad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = orbGrad;
+    ctx.fillRect(orbX - orbR, orbY - orbR, orbR * 2, orbR * 2);
+
+    // Index number (top-left)
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.font = "bold 20px 'Courier New', monospace";
+    ctx.fillText(`0${i + 1}`, cx + 16, contentY + 12);
+
+    // Tags (top-right)
+    if (f.tags) {
+      ctx.textAlign = "right";
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.font = "18px 'Helvetica Neue', Arial, sans-serif";
+      ctx.fillText(f.tags, cx + contentW - 16, contentY + 14);
+    }
 
     // Title & subtitle
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = 16;
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 20;
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 58px 'Helvetica Neue', Arial, sans-serif";
+    ctx.font = "bold 56px 'Helvetica Neue', Arial, sans-serif";
     ctx.fillText(f.title, cx + contentW / 2, contentY + contentH / 2 - 26);
-    ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.font = "26px 'Helvetica Neue', Arial, sans-serif";
-    ctx.fillText(f.subtitle, cx + contentW / 2, contentY + contentH / 2 + 36);
+    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    ctx.font = "24px 'Helvetica Neue', Arial, sans-serif";
+    ctx.fillText(f.subtitle, cx + contentW / 2, contentY + contentH / 2 + 34);
     ctx.shadowBlur = 0;
 
     // Filmic vignette on the content
