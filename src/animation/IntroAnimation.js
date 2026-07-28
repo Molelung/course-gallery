@@ -1,12 +1,12 @@
 /**
  * IntroAnimation — the film is pulled out of the roll from one end.
  *
- * The reel starts fully coiled (FilmReel.unroll = 0), framed close: pushed
- * toward the camera and shifted so the standing roll reads on the left of
- * the screen. A damped spring drives the peel from the left tail all the
- * way to the right tail while the whole group dollies back to its home
- * pose — so the film streams across the screen and settles into the winding
- * strip in one continuous pull. skipToEnd() fast-forwards (click-to-skip).
+ * Time-based (not a spring — a spring converges in a fraction of a second
+ * and reads as a flash): the peel travels the full path over ~2.6s with an
+ * easeInOutCubic profile, so the film accelerates gently, streams across
+ * the screen, then SLOWS TO A STOP with no overshoot or bounce (慢慢停下).
+ * The whole group dollies back to its home pose over the same ease.
+ * skipToEnd() fast-forwards (click-to-skip).
  */
 export default class IntroAnimation {
 
@@ -15,32 +15,31 @@ export default class IntroAnimation {
     this.finished = false;
     this._running = false;
 
-    // Spring state for the unroll
-    this.u = 0;
-    this.uvel = 0;
+    this.duration = 2600; // ms for the pull
+    this._t0 = null;
 
-    // Opening pose (e = 0): close to the camera, roll framed left-of-center.
-    // NOTE: rotation.y must stay small — a large Y-rotation swings the
-    // far-left roll off-screen (verified: 0.3 rad pushed it past the edge).
+    // Opening pose (e = 0): group shifted right & toward the camera so the
+    // roll (at the strip's far-left tip, local x=-12) sits just inside the
+    // left screen edge. rotation stays 0 — any Y-rotation swings the roll
+    // off-screen (verified twice).
     this.object.visible = true;
     this.object.setUnroll(0);
-    this.object.rotation.y = 0.12;
-    this.object.position.x = 2.2;
-    this.object.position.z = 6.0;
+    this.object.rotation.y = 0;
+    this.object.position.x = 6.9;
+    this.object.position.z = 6.5;
   }
 
   /** Trigger the pull. */
   begin() {
     if (this._running || this.finished) return;
     this._running = true;
+    this._t0 = null; // armed; stamped on the first update
   }
 
   /** Fast-forward to the fully laid-out state (click-to-skip). */
   skipToEnd() {
     this.finished = true;
     this._running = false;
-    this.u = 1;
-    this.uvel = 0;
     this.object.setUnroll(1);
     this.object.rotation.y = 0;
     this.object.position.x = 0;
@@ -49,23 +48,18 @@ export default class IntroAnimation {
 
   update() {
     if (this.finished || !this._running) return;
+    if (this._t0 === null) this._t0 = performance.now();
 
-    // Damped spring toward fully-open — steady pull with a soft settle at
-    // the end (film tension), not a bounce.
-    this.uvel += (1 - this.u) * 0.042;
-    this.uvel *= 0.895;
-    this.u += this.uvel;
+    const raw = (performance.now() - this._t0) / this.duration;
+    const t = Math.min(1, Math.max(0, raw));
+    // easeInOutCubic: slow start, steady middle, slow stop — no overshoot
+    const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-    // Dolly out & straighten while the film spools across
-    const e = this.u;
-    this.object.rotation.y = (1 - e) * 0.12;
-    this.object.position.x = (1 - e) * 2.2;
-    this.object.position.z = (1 - e) * 6.0;
+    this.object.rotation.y = 0;
+    this.object.position.x = (1 - e) * 6.9;
+    this.object.position.z = (1 - e) * 6.5;
+    this.object.setUnroll(e);
 
-    this.object.setUnroll(this.u);
-
-    if (Math.abs(1 - this.u) < 0.0015 && Math.abs(this.uvel) < 0.0015) {
-      this.skipToEnd();
-    }
+    if (t >= 1) this.skipToEnd();
   }
 }

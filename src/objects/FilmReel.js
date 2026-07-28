@@ -54,25 +54,24 @@ export default class FilmReel extends THREE.Group {
   }
 
   /**
-   * Winding path — shader.se style: the strip is essentially flat & upright
-   * at the active frame, receding smoothly on both sides with only a gentle
-   * S so the tails feel like a river rather than a ramp. Depth reads come
-   * from the taper + fog, not from aggressive Z swings (those twisted the
-   * ribbon and looked broken).
+   * Winding path — shader.se style: the strip is flat & upright at the
+   * active frame and recedes in a soft, breathable arc. The tails turn
+   * gently OFF-SCREEN (x beyond the frustum), implying many more frames
+   * continue out of view — no hooks, no aggressive Z swings.
    */
   _buildPath() {
     const pts = [
-      new THREE.Vector3(-10.5, -1.55, -21.0),
-      new THREE.Vector3(-7.8, -1.05, -12.5),
-      new THREE.Vector3(-5.4, -0.60,  -8.8),
-      new THREE.Vector3(-3.2, -0.22,  -4.2),
-      new THREE.Vector3(-1.4, -0.05,  -1.3),
-      new THREE.Vector3( 0.0,  0.00,   0.0),
-      new THREE.Vector3( 1.4,  0.05,  -1.4),
-      new THREE.Vector3( 3.2,  0.22,  -4.4),
-      new THREE.Vector3( 5.4,  0.60,  -8.2),  // soft forward hook — the river bend
-      new THREE.Vector3( 7.8,  1.05, -12.6),
-      new THREE.Vector3(10.5,  1.55, -21.0)
+      new THREE.Vector3(-12.0, -1.40, -9.0),
+      new THREE.Vector3(-9.5, -1.00, -6.5),
+      new THREE.Vector3(-7.0, -0.60, -4.2),
+      new THREE.Vector3(-4.5, -0.28, -2.4),
+      new THREE.Vector3(-2.2, -0.08, -1.0),
+      new THREE.Vector3( 0.0,  0.00,  0.0),
+      new THREE.Vector3( 2.2,  0.08, -1.0),
+      new THREE.Vector3( 4.5,  0.28, -2.4),
+      new THREE.Vector3( 7.0,  0.60, -4.2),
+      new THREE.Vector3( 9.5,  1.00, -6.5),
+      new THREE.Vector3(12.0,  1.40, -9.0)
     ];
     this.curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.5);
     this.pathLength = this.curve.getLength();
@@ -272,15 +271,16 @@ export default class FilmReel extends THREE.Group {
       const nd = sd / maxDist;
 
       // Paper sway: two slow sine waves drifting along the strip; pinned at
-      // the active frame, growing gently with distance.
+      // the active frame, barely-there amplitude — a loose sheet breathing,
+      // never wobbling.
       const swayAmp = Math.min(1, ad / 5);
-      const swayY = (Math.sin(t * 0.62 + sd * 0.55) * 0.05 +
-                     Math.sin(t * 1.07 + sd * 0.23 + 1.7) * 0.028) * swayAmp;
-      const swayZ = Math.cos(t * 0.48 + sd * 0.42 + 0.6) * 0.06 * swayAmp;
+      const swayY = (Math.sin(t * 0.62 + sd * 0.55) * 0.032 +
+                     Math.sin(t * 1.07 + sd * 0.23 + 1.7) * 0.018) * swayAmp;
+      const swayZ = Math.cos(t * 0.48 + sd * 0.42 + 0.6) * 0.04 * swayAmp;
 
-      const fx = bp.x + this.bend * nd * 1.3;
-      const fy = bp.y + this.bend * 0.12 * Math.cos(nd * Math.PI) + swayY * fw;
-      const fz = bp.z - this.bend * (1 - Math.min(1, ad / maxDist) ** 2) * 0.7 + swayZ * fw;
+      const fx = bp.x + this.bend * nd * 0.8;
+      const fy = bp.y + this.bend * 0.08 * Math.cos(nd * Math.PI) + swayY * fw;
+      const fz = bp.z - this.bend * (1 - Math.min(1, ad / maxDist) ** 2) * 0.45 + swayZ * fw;
 
       const X = fx * fw + cx * (1 - fw);
       const Y = fy * fw + cy * (1 - fw);

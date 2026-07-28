@@ -92,9 +92,9 @@ export default class CarouselController {
       target = startFrame + Math.sign(this.flick);
     }
     this.targetOffset = target;
-    // Inertia: a gentle carry of the release velocity — real film glides a
-    // little, it doesn't snap back.
-    this.vel = THREE.MathUtils.clamp(this.flick * 0.3, -0.32, 0.32);
+    // Inertia: a gentle carry of the release velocity — absorbed by the
+    // overdamped spring below, so the strip glides on a beat and stops.
+    this.vel = THREE.MathUtils.clamp(this.flick * 0.22, -0.25, 0.25);
   }
 
   /**
@@ -120,18 +120,18 @@ export default class CarouselController {
   }
 
   update() {
-    // Spring follow — tuned like film pulled by hand: it glides onto the
-    // frame with almost no overshoot, instead of bouncing back elastically.
-    const stiffness = 0.058;
-    const damping = 0.86;
+    // Overdamped spring follow — the strip glides onto the frame and comes
+    // to rest with NO overshoot / bounce-back (per user feedback: 慢慢停下).
+    const stiffness = 0.05;
+    const damping = 0.78;
     this.vel += (this.targetOffset - this.currentOffset) * stiffness;
     this.vel *= damping;
     this.currentOffset += this.vel;
     this.reel.setOffset(this.currentOffset);
 
-    // Elastic bow proportional to travel speed — kept subtle; the reel
-    // itself smooths it further into a paper-like wave.
-    this.reel.setBend(THREE.MathUtils.clamp(this.vel * 0.4, -0.45, 0.45));
+    // Elastic bow proportional to travel speed — subtle; the reel itself
+    // smooths it further into a paper-like wave.
+    this.reel.setBend(THREE.MathUtils.clamp(this.vel * 0.25, -0.3, 0.3));
 
     // Fire frame-change callback
     const activeIndex = this.reel.getActiveIndex();
