@@ -62,15 +62,15 @@ export default class FilmReel extends THREE.Group {
   _buildPath() {
     const pts = [
       new THREE.Vector3(-12.0, -1.40, -9.0),
-      new THREE.Vector3(-9.5, -1.00, -6.5),
-      new THREE.Vector3(-7.0, -0.60, -4.2),
-      new THREE.Vector3(-4.5, -0.28, -2.4),
-      new THREE.Vector3(-2.2, -0.08, -1.0),
+      new THREE.Vector3(-9.5, -1.00, -6.2),
+      new THREE.Vector3(-7.0, -0.60, -3.8),
+      new THREE.Vector3(-4.5, -0.25, -1.9),
+      new THREE.Vector3(-2.2, -0.06, -0.7),
       new THREE.Vector3( 0.0,  0.00,  0.0),
-      new THREE.Vector3( 2.2,  0.08, -1.0),
-      new THREE.Vector3( 4.5,  0.28, -2.4),
-      new THREE.Vector3( 7.0,  0.60, -4.2),
-      new THREE.Vector3( 9.5,  1.00, -6.5),
+      new THREE.Vector3( 2.2,  0.06, -0.7),
+      new THREE.Vector3( 4.5,  0.25, -1.9),
+      new THREE.Vector3( 7.0,  0.60, -3.8),
+      new THREE.Vector3( 9.5,  1.00, -6.2),
       new THREE.Vector3(12.0,  1.40, -9.0)
     ];
     this.curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.5);
@@ -127,11 +127,11 @@ export default class FilmReel extends THREE.Group {
       normals.push(side.x, side.y, side.z);
       uvs.push(i / SEGMENTS, 1);
 
-      // Gentle brightness falloff — distant film dims but its content stays
-      // readable; the final disappearance is handled by scene fog instead.
+      // Very gentle brightness falloff — the centre shouldn't pop harshly
+      // against the tails; fog handles the final dissolve.
       const dNorm = Math.abs(i - centerIdx) / (SEGMENTS * 0.5);
-      let b = 1.0 - Math.pow(dNorm, 2.1) * 0.62;
-      b = THREE.MathUtils.clamp(b, 0.38, 1.0);
+      let b = 1.0 - Math.pow(dNorm, 2.3) * 0.5;
+      b = THREE.MathUtils.clamp(b, 0.5, 1.0);
       colors.push(b, b, b, b, b, b);
 
       if (i < SEGMENTS) {

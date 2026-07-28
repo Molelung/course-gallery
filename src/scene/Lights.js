@@ -29,8 +29,9 @@ export default class Lights {
     coolLight.position.set(4, -1, 3.5);
     scene.add(coolLight);
 
-    // Subtle center spot to highlight the active frame
-    const spotLight = new THREE.SpotLight(0xffffff, 8, 14, Math.PI / 6, 0.5);
+    // Subtle center spot — soft & wide so the camera-facing area doesn't
+    // read as a harsh hotspot
+    const spotLight = new THREE.SpotLight(0xffffff, 4, 14, Math.PI / 5, 0.7);
     spotLight.position.set(0, 0.5, 5);
     spotLight.target.position.set(0, 0, 0);
     scene.add(spotLight);
