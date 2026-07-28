@@ -39,9 +39,8 @@ export default class Camera {
   }
 
   /**
-   * Fit the camera so the cylindrical carousel fills the viewport nicely.
-   * Shows the center frame prominently with adjacent frames peeking in.
-   * On portrait / mobile screens, zoom in more so the film dominates.
+   * Fit the camera so the film strip dominates the viewport.
+   * Responsive: on mobile/portrait the film fills even more of the screen.
    */
   fit() {
     if (!this.reel) return;
@@ -50,26 +49,31 @@ export default class Camera {
     const tan = Math.tan(vFov / 2);
     const aspect = this.camera.aspect;
 
-    // Responsive fill
     const isPortrait = aspect < 1;
-    const fill = isPortrait ? 0.62 : this.fill;
+    const isMobile = window.innerWidth < 768;
 
-    // For the cylindrical carousel, the effective visible width includes
-    // the center frame + portions of adjacent frames curving away.
-    // Use ~1.8x frame width for the carousel view.
-    const w = this.reel.frameWidth * 1.8;
-    const h = this.reel.frameHeight + 0.5; // strip height with borders
+    // How much of the viewport the center frame should fill
+    // Mobile: much larger so the film dominates the small screen
+    let fill;
+    if (isMobile && isPortrait) fill = 0.82;
+    else if (isPortrait) fill = 0.72;
+    else fill = this.fill;
+
+    // The visible strip width (center frame + partial adjacent frames)
+    // On mobile show less width (focus on center frame)
+    const widthMult = isMobile ? 1.3 : 1.8;
+    const w = this.reel.frameWidth * widthMult;
+    const h = this.reel.frameHeight + 0.5;
     const tilt = this.reel.tilt || 0;
     const effW = Math.abs(w * Math.cos(tilt)) + Math.abs(h * Math.sin(tilt));
     const effH = Math.abs(w * Math.sin(tilt)) + Math.abs(h * Math.cos(tilt));
 
-    // Distance to fit
     const dH = effH / (fill * 2 * tan);
     const dW = effW / (fill * aspect * 2 * tan);
     this.baseZ = Math.max(dH, dW);
 
-    // Close-up: fill viewport with a single frame
-    const enterFill = isPortrait ? 0.95 : this.enterFill;
+    // Close-up: single frame fills viewport
+    const enterFill = isMobile ? 0.98 : this.enterFill;
     const fw = this.reel.frameWidth;
     const fh = this.reel.frameHeight;
     const cH = fh / (enterFill * 2 * tan);
