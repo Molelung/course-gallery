@@ -7,7 +7,6 @@ import Lights from "./scene/Lights.js";
 import FilmReel from "./objects/FilmReel.js";
 import PostProcessing from "./scene/PostProcessing.js";
 import IntroAnimation from "./animation/IntroAnimation.js";
-import SplashAnimation from "./animation/SplashAnimation.js";
 import Interaction from "./animation/Interaction.js";
 import CarouselController from "./animation/ScrollAnimation.js";
 import DetailView from "./animation/DetailView.js";
@@ -39,32 +38,36 @@ const postProcessing = new PostProcessing(
   camera
 );
 
-const intro = new IntroAnimation(film);
+const intro = new IntroAnimation(film, camera);
 const interaction = new Interaction(camera.camera);
 
-// Hide the UI chrome until the pull begins
+// Hide the UI chrome until the opening sequence is underway
 document.body.classList.add("intro-pending");
 const revealChrome = () => document.body.classList.remove("intro-pending");
 
-// Splash: transparent layer over the 3D roll; onComplete starts the opening
-const splash = new SplashAnimation({
-  holdDuration: 500,   // loader breathing dot fades -> roll revealed at centre
-  pullDuration: 4400,  // matches the intro pull
-  fadeDuration: 600,
-  onComplete: () => {
-    intro.begin();
-    // Chrome fades in once the pull is underway
-    setTimeout(revealChrome, 2000);
-  },
-  onSkip: () => {
-    intro.skipToEnd();
-    revealChrome();
-  }
-});
+// The opening is USER-TRIGGERED: once the loader fades, the roll sits
+// centred (armed) with a hint. First click begins the sequence; a click
+// during the sequence skips to the end. Carousel/drag stays off until done.
+const flatStart = new URLSearchParams(location.search).has("flat");
+if (flatStart) {
+  intro.skipToEnd();
+} else {
+  document.body.classList.add("intro-active");
+  setTimeout(() => {
+    if (!intro.finished) document.body.classList.add("intro-armed");
+  }, 800);
 
-// Debug hook: ?flat skips the splash & unroll so the laid-out film shows at once
-if (new URLSearchParams(location.search).has("flat")) {
-  splash.skip();
+  window.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button") || e.target.closest("a")) return;
+    if (document.body.classList.contains("intro-armed")) {
+      document.body.classList.remove("intro-armed");
+      intro.begin();
+      setTimeout(revealChrome, 2000);
+    } else if (!intro.finished) {
+      document.body.classList.remove("intro-armed");
+      intro.skipToEnd();
+    }
+  });
 }
 
 // Debug handles for headless verification
@@ -98,6 +101,9 @@ const carousel = new CarouselController(film, {
 
 // Detail view: scroll / click to enter the active frame
 const detail = new DetailView(camera, film, carousel, frameData);
+
+// Drag & gestures stay off until the opening sequence finishes
+if (!intro.finished) carousel.enabled = false;
 
 //////////////////////////////////////////////////
 // Side Menu: hamburger -> course catalog + About Us
@@ -211,7 +217,7 @@ function setSimpleMode(on) {
     detail.setStage(0);
     carousel.enabled = false;
   } else {
-    carousel.enabled = detail.stage === 0;
+    carousel.enabled = detail.stage === 0 && intro.finished;
   }
 }
 
@@ -242,6 +248,14 @@ function animate() {
   interaction.update();
   carousel.update();
   detail.update();
+
+  // Opening finished (played through or skipped) → enable input & chrome
+  if (intro.finished && document.body.classList.contains("intro-active")) {
+    document.body.classList.remove("intro-active", "intro-armed");
+    carousel.enabled = detail.stage === 0 &&
+      !document.body.classList.contains("simple-mode");
+    revealChrome();
+  }
 
   // Fog ramps in as the film unrolls: the opening roll is far away and must
   // stay visible; once the strip is laid out, the tails dissolve into fog.

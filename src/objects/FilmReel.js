@@ -45,12 +45,97 @@ export default class FilmReel extends THREE.Group {
 
     this._buildPath();
     this._createStrip();
+    this._createRollFace();
 
     this.dust = createDust();
     this.add(this.dust);
 
     this.setOffset(0);
     this._applyMorph();
+  }
+
+  /**
+   * The roll's "axis" — what makes it read as an unopened roll of film
+   * instead of a tangle of threads: two end-face discs textured with
+   * concentric wound layers + a centre hub, plus a small spindle nub.
+   * Procedural (an external GLB couldn't shrink with the unroll anyway).
+   * The group is tilted toward the camera so the ringed face is visible.
+   */
+  _createRollFace() {
+    // Concentric-rings face texture (wound film layers + hub + core hole)
+    const c = document.createElement("canvas");
+    c.width = c.height = 512;
+    const x = c.getContext("2d");
+    x.fillStyle = "#14141b";
+    x.fillRect(0, 0, 512, 512);
+    const cx = 256, cy = 256;
+    for (let r = 250; r > 78; r -= 7) {
+      x.beginPath();
+      x.arc(cx, cy, r, 0, Math.PI * 2);
+      x.strokeStyle = (r % 14 < 7) ? "rgba(46,46,58,0.85)" : "rgba(16,16,22,0.9)";
+      x.lineWidth = 4;
+      x.stroke();
+    }
+    // Subtle sheen arcs on the face
+    x.beginPath();
+    x.arc(cx, cy, 200, -0.9, 0.4);
+    x.strokeStyle = "rgba(160,170,200,0.14)";
+    x.lineWidth = 26;
+    x.stroke();
+    // Hub + spindle hole
+    x.beginPath();
+    x.arc(cx, cy, 74, 0, Math.PI * 2);
+    x.fillStyle = "#2b2b36";
+    x.fill();
+    x.beginPath();
+    x.arc(cx, cy, 74, 0, Math.PI * 2);
+    x.strokeStyle = "rgba(180,190,215,0.28)";
+    x.lineWidth = 3;
+    x.stroke();
+    x.beginPath();
+    x.arc(cx, cy, 30, 0, Math.PI * 2);
+    x.fillStyle = "#07070b";
+    x.fill();
+    // Hub slots (like a real 35mm core)
+    x.fillStyle = "#14141b";
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 2 + Math.PI / 4;
+      x.save();
+      x.translate(cx + Math.cos(a) * 52, cy + Math.sin(a) * 52);
+      x.rotate(a);
+      x.fillRect(-7, -12, 14, 24);
+      x.restore();
+    }
+
+    const faceTex = new THREE.CanvasTexture(c);
+    faceTex.colorSpace = THREE.SRGBColorSpace;
+
+    const discGeo = new THREE.CircleGeometry(1, 64);
+    const faceMat = new THREE.MeshStandardMaterial({
+      map: faceTex, roughness: 0.55, metalness: 0.05, side: THREE.FrontSide
+    });
+    const backMat = new THREE.MeshStandardMaterial({
+      color: 0x101016, roughness: 0.6, metalness: 0.05, side: THREE.FrontSide
+    });
+
+    this.rollGroup = new THREE.Group();
+    this.rollGroup.rotation.order = "YXZ";
+
+    this.rollTop = new THREE.Mesh(discGeo, faceMat);
+    this.rollTop.rotation.x = -Math.PI / 2;      // faces up the roll's axis
+    this.rollBottom = new THREE.Mesh(discGeo, backMat);
+    this.rollBottom.rotation.x = Math.PI / 2;
+
+    // Spindle nub sticking out of the hub
+    const nub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.09, 0.22, 24),
+      new THREE.MeshStandardMaterial({ color: 0x3a3a46, roughness: 0.4, metalness: 0.3 })
+    );
+    nub.position.y = 1.0; // re-offset each frame to the roll's half height
+
+    this.rollGroup.add(this.rollTop, this.rollBottom, nub);
+    this.rollNub = nub;
+    this.add(this.rollGroup);
   }
 
   /**
@@ -100,6 +185,10 @@ export default class FilmReel extends THREE.Group {
     this.segDist = [];
     const avg = this.pathLength / SEGMENTS;
     for (let i = 0; i <= SEGMENTS; i++) this.segDist.push((i - centerIdx) * avg);
+
+    // Exact local position of the roll's centre at unroll=0 (used by the
+    // intro to centre the roll precisely on any device)
+    this.rollLocal = this.basePts[0].clone().add(new THREE.Vector3(0, 0.1, -0.55));
 
     const halfH = STRIP_H / 2;
     const tan = new THREE.Vector3();
@@ -247,8 +336,16 @@ export default class FilmReel extends THREE.Group {
     const rcy = pa.y + (pb.y - pa.y) * fR + 0.1;
     const rcz = pa.z + (pb.z - pa.z) * fR - 0.55; // tucks behind the laid film
     const R = Math.max(0.12, 1.0 * (1 - this.unroll) + 0.1); // shrinking roll
-    const TURNS = 4.5;           // spiral turns from peel to core
+    const TURNS = 12;            // tightly wound — many layers, like real film
     const spin = this.unroll * 4.2; // the roll visibly rotates as it unwinds
+    // Tilt the whole coil toward the camera so the ringed end-face shows —
+    // without the tilt the roll is edge-on and reads as tangled threads.
+    const TILT_X = -0.55;
+    const cosT = Math.cos(TILT_X), sinT = Math.sin(TILT_X);
+
+    // Stash roll state so update() can sync the axis model (rollGroup)
+    this._rollState = { x: rcx, y: rcy, z: rcz, R, spin, tilt: TILT_X,
+                        visible: this.unroll < 0.985 };
 
     for (let i = 0; i <= SEGMENTS; i++) {
       const sd = this.segDist[i];
@@ -257,14 +354,13 @@ export default class FilmReel extends THREE.Group {
       // 1 = laid flat (sd already passed by the peel), 0 = still on the roll
       const fw = 1 - THREE.MathUtils.smoothstep(sd, peel, peel + band);
 
-      // --- Rolled position: standing roll (vertical axis) at the peel point ---
+      // --- Rolled position: tight spiral wound on the roll's tilted axis ---
       const over = Math.max(0, sd - peel);
       const layer = Math.min(1, over / L);                  // 0 peel → 1 core
-      const radius = Math.max(0.08, R * (1 - layer * 0.8));
+      const radius = Math.max(0.09, R * (1 - layer * 0.55));
       const ang = layer * Math.PI * 2 * TURNS - spin;
-      const cx = rcx + Math.cos(ang) * radius;
-      const cy = rcy;
-      const cz = rcz + Math.sin(ang) * radius * 0.92;
+      const sx = Math.cos(ang) * radius;                    // roll-local
+      const sz = Math.sin(ang) * radius;                    // plane coords
 
       // --- Flat position + elastic bend + paper sway ---
       const bp = this.basePts[i];
@@ -282,19 +378,24 @@ export default class FilmReel extends THREE.Group {
       const fy = bp.y + this.bend * 0.08 * Math.cos(nd * Math.PI) + swayY * fw;
       const fz = bp.z - this.bend * (1 - Math.min(1, ad / maxDist) ** 2) * 0.45 + swayZ * fw;
 
-      const X = fx * fw + cx * (1 - fw);
-      const Y = fy * fw + cy * (1 - fw);
-      const Z = fz * fw + cz * (1 - fw);
-
       // Distance taper: the film narrows as it winds away — thinner, but
       // still visible, until the fog dissolves it.
       const taper = 1 / (1 + ad * 0.058);
       const hh = halfH * taper;
 
+      // Write both verts; the coiled ones include the strip's half-height
+      // along the roll's TILTED axis so the spiral matches the end-face discs
       const bi = (i * 2) * 3;
-      arr[bi] = X; arr[bi + 1] = Y - hh; arr[bi + 2] = Z;
       const ti = (i * 2 + 1) * 3;
-      arr[ti] = X; arr[ti + 1] = Y + hh; arr[ti + 2] = Z;
+      for (const [idx, s] of [[bi, -1], [ti, 1]]) {
+        // coil-local vertex: (sx, s*hh, sz) tilted about X by TILT_X
+        const coilX = rcx + sx;
+        const coilY = rcy + (s * hh) * cosT - sz * sinT;
+        const coilZ = rcz + (s * hh) * sinT + sz * cosT;
+        arr[idx]     = fx * fw + coilX * (1 - fw);
+        arr[idx + 1] = (fy + s * hh) * fw + coilY * (1 - fw);
+        arr[idx + 2] = fz * fw + coilZ * (1 - fw);
+      }
     }
     posAttr.needsUpdate = true;
   }
@@ -309,6 +410,23 @@ export default class FilmReel extends THREE.Group {
       this.strip.material.emissiveIntensity = 0.2 + (1 - this.unroll) * 0.3;
     }
     this._applyMorph();
+
+    // Sync the roll's axis model with the morph state
+    if (this.rollGroup && this._rollState) {
+      const rs = this._rollState;
+      this.rollGroup.visible = rs.visible;
+      if (rs.visible) {
+        this.rollGroup.position.set(rs.x, rs.y, rs.z);
+        this.rollGroup.rotation.set(rs.tilt, rs.spin, 0);
+        this.rollGroup.scale.set(rs.R, 1, rs.R);
+        // End faces sit at the strip's half height along the roll's axis
+        const hh = (STRIP_H / 2) * 0.98;
+        this.rollTop.position.y = hh;
+        this.rollBottom.position.y = -hh;
+        this.rollNub.position.y = hh + 0.08;
+      }
+    }
+
     if (this.dust) this.dust.rotation.y += (delta || 0.016) * 0.02;
   }
 }

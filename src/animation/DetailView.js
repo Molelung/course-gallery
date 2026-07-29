@@ -45,10 +45,11 @@ export default class DetailView {
     this.bindEvents();
   }
 
-  /** Gestures ignored while a UI layer (menu / about / simple mode) is open. */
+  /** Gestures ignored while a UI layer (menu / about / simple mode / intro) is open. */
   _uiBlocked() {
     return document.body.classList.contains("menu-open") ||
            document.body.classList.contains("about-open") ||
+           document.body.classList.contains("intro-active") ||
            document.body.classList.contains("simple-mode");
   }
 
