@@ -141,9 +141,9 @@ export default class FilmReel extends THREE.Group {
     const discGeo = new THREE.CircleGeometry(1, 64);
     const faceMat = new THREE.MeshStandardMaterial({
       map: faceTex, roughness: 0.5, metalness: 0.1, side: THREE.FrontSide,
-      // A whisper of self-light from its own texture keeps the ringed face
-      // readable in the dark scene without looking neon.
-      emissive: 0xffffff, emissiveMap: faceTex, emissiveIntensity: 0.22
+      // Barely-there self-light: the face reads via the side key light,
+      // this only keeps it from going pitch black in the shadow turn.
+      emissive: 0xffffff, emissiveMap: faceTex, emissiveIntensity: 0.1
     });
     const backMat = new THREE.MeshStandardMaterial({
       color: 0x1a1a24, roughness: 0.55, metalness: 0.08, side: THREE.FrontSide,
@@ -526,10 +526,11 @@ export default class FilmReel extends THREE.Group {
     this._elapsed = elapsed || 0;
     // Paper-damped follow for the elastic bow: heavy smoothing, no snap-back
     this.bend += (this.bendTarget - this.bend) * 0.055;
-    // The coiled roll glows like a lightbox so it reads in the dark; the
-    // glow settles to normal backlit-film level once laid out.
+    // The coiled roll carries a whisper of self-light so it never dies in
+    // the dark — but no more than that; the vintage look comes from the
+    // side lighting, not from the film glowing like a lamp.
     if (this.strip && this.strip.material) {
-      this.strip.material.emissiveIntensity = 0.2 + (1 - this.unroll) * 0.3;
+      this.strip.material.emissiveIntensity = 0.14 + (1 - this.unroll) * 0.18;
     }
     this._applyMorph();
 
