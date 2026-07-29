@@ -248,6 +248,13 @@ export default class DetailView {
     });
   }
 
+  /** Rebind to another reel + its course data (instructor switch). */
+  setReel(reel, frameData) {
+    this.reel = reel;
+    this.frameData = frameData;
+    if (this.stage !== 0) this.setStage(0);
+  }
+
   /** Raycast a screen point into the strip, returning a frame index or null. */
   _raycastIndex(x, y) {
     this.pointer.x = (x / window.innerWidth) * 2 - 1;

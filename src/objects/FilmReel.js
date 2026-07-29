@@ -1,9 +1,8 @@
 import * as THREE from "three";
-import { createFilmStripTexture, getDefaultFrames } from "../utils/CanvasTexture.js";
+import { createFilmStripTexture } from "../utils/CanvasTexture.js";
 import createDust from "./DustParticles.js";
 
 // ---- Film strip parameters ----
-const FRAME_COUNT = getDefaultFrames().length;
 const FRAME_WIDTH = 2.4;
 const FRAME_HEIGHT = 1.5;
 const BORDER_H = 0.24;
@@ -32,13 +31,21 @@ const _up = new THREE.Vector3(0, 1, 0);
  * - `setUnroll(t)` morphs the strip between a coiled roll (t=0) and the
  *   fully laid-out winding path (t=1) — used by the intro "unrolling" animation.
  * - `setBend(b)` applies an elastic bow to the strip while dragging.
+ *
+ * Each reel belongs to one instructor (courseSet): the strip texture is
+ * built from that set's frames, and the wound roll carries a paper label
+ * sticker with the instructor's name.
  */
 export default class FilmReel extends THREE.Group {
 
-  constructor() {
+  constructor(courseSet) {
     super();
 
-    this.frameCount = FRAME_COUNT;
+    this.courseSet = courseSet;              // { id, instructor, series, frames }
+    this.instructor = courseSet.instructor;
+    const frames = courseSet.frames;
+
+    this.frameCount = frames.length;
     this.frameWidth = FRAME_WIDTH;
     this.frameHeight = FRAME_HEIGHT;
     this.tilt = TILT;
@@ -52,8 +59,9 @@ export default class FilmReel extends THREE.Group {
     this.rotation.z = TILT;
 
     this._buildPath();
-    this._createStrip();
+    this._createStrip(frames);
     this._createRollFace();
+    this._createLabel();
 
     this.dust = createDust();
     this.add(this.dust);
@@ -163,6 +171,93 @@ export default class FilmReel extends THREE.Group {
   }
 
   /**
+   * Paper label sticker on the roll's side — like the real sealing label on
+   * a fresh roll of film: off-white stock, a punched hole with a reinforced
+   * ring, the instructor's name, and a slightly askew stick for realism.
+   * Parented to rollGroup, so it spins & shrinks with the roll itself.
+   */
+  _createLabel() {
+    const c = document.createElement("canvas");
+    c.width = 512;
+    c.height = 192;
+    const x = c.getContext("2d");
+
+    // Label stock — warm off-white, darker toward the edges like aged paper
+    const paper = x.createLinearGradient(0, 0, 0, 192);
+    paper.addColorStop(0, "#efe8d6");
+    paper.addColorStop(0.5, "#e7ddc6");
+    paper.addColorStop(1, "#d9cdae");
+    x.fillStyle = paper;
+    x.fillRect(0, 0, 512, 192);
+
+    // Faint paper fibres
+    x.globalAlpha = 0.05;
+    for (let i = 0; i < 260; i++) {
+      x.strokeStyle = Math.random() > 0.5 ? "#8a7d5e" : "#ffffff";
+      x.lineWidth = 1;
+      const fx = Math.random() * 512, fy = Math.random() * 192;
+      x.beginPath();
+      x.moveTo(fx, fy);
+      x.lineTo(fx + 14 + Math.random() * 22, fy + (Math.random() - 0.5) * 4);
+      x.stroke();
+    }
+    x.globalAlpha = 1;
+
+    // Double border like a printed luggage tag
+    x.strokeStyle = "rgba(74,60,38,0.85)";
+    x.lineWidth = 4;
+    x.strokeRect(10, 10, 492, 172);
+    x.lineWidth = 1.5;
+    x.strokeRect(20, 20, 472, 152);
+
+    // Punched hole + reinforcement ring (left side, like a tag you could tie)
+    x.beginPath();
+    x.arc(66, 96, 26, 0, Math.PI * 2);
+    x.strokeStyle = "rgba(74,60,38,0.7)";
+    x.lineWidth = 6;
+    x.stroke();
+    x.beginPath();
+    x.arc(66, 96, 14, 0, Math.PI * 2);
+    x.fillStyle = "#2a2419";
+    x.fill();
+
+    // Instructor name — the point of the label
+    x.textBaseline = "middle";
+    x.fillStyle = "#33291a";
+    x.textAlign = "left";
+    const zhFont = "'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif";
+    x.font = `bold 84px ${zhFont}`;
+    x.fillText(this.instructor, 122, 84);
+    // Caption under the name
+    x.font = `600 30px ${zhFont}`;
+    x.fillStyle = "rgba(74,60,38,0.85)";
+    x.fillText(`讲师 · ${this.courseSet.series}`, 124, 148);
+    // Small print on the right
+    x.textAlign = "right";
+    x.font = "600 22px 'Courier New', monospace";
+    x.fillStyle = "rgba(74,60,38,0.55)";
+    x.fillText("35MM · COURSE GALLERY", 484, 34);
+
+    const labelTex = new THREE.CanvasTexture(c);
+    labelTex.colorSpace = THREE.SRGBColorSpace;
+
+    // Curved tag wrapping part of the roll's outer wrap, facing the camera
+    const arc = 1.5; // radians of circumference the label covers
+    const geo = new THREE.CylinderGeometry(
+      1.02, 1.02, 0.36, 40, 1, true, -arc / 2, arc
+    );
+    const mat = new THREE.MeshStandardMaterial({
+      map: labelTex, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide,
+      // Slightly self-lit so the paper tag stays readable in the dark scene
+      emissive: 0xffffff, emissiveMap: labelTex, emissiveIntensity: 0.28
+    });
+    const label = new THREE.Mesh(geo, mat);
+    label.rotation.z = 0.05;   // stuck on slightly askew, like a real sticker
+    this.rollGroup.add(label);
+    this.rollLabel = label;
+  }
+
+  /**
    * Winding path — shader.se style: the strip is flat & upright at the
    * active frame and recedes in a soft, breathable arc. The tails turn
    * gently OFF-SCREEN (x beyond the frustum), implying many more frames
@@ -186,7 +281,7 @@ export default class FilmReel extends THREE.Group {
     this.pathLength = this.curve.getLength();
   }
 
-  _createStrip() {
+  _createStrip(frames) {
     const positions = [];
     const normals = [];
     const uvs = [];
@@ -266,12 +361,12 @@ export default class FilmReel extends THREE.Group {
       this.pathLength
     );
 
-    this.stripTexture = createFilmStripTexture(getDefaultFrames(), {
+    this.stripTexture = createFilmStripTexture(frames, {
       contentWFrac: FRAME_WIDTH / STEP,
       contentHFrac: FRAME_HEIGHT / STRIP_H,
       borderFrac: BORDER_H / STRIP_H
     });
-    this.stripTexture.repeat.x = this.pathLength / (STEP * FRAME_COUNT);
+    this.stripTexture.repeat.x = this.pathLength / (STEP * this.frameCount);
 
     // Physical material — real celluloid film: non-metallic plastic with a
     // glossy clearcoat, and a gentle self-illumination so the frames read as

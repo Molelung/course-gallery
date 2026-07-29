@@ -45,6 +45,14 @@ body.intro-armed #open-hint {
   animation: ohTextFade 1.6s ease-in-out infinite;
 }
 
+/* Second line: the swipe-to-switch hint, dimmer & smaller */
+#open-hint p.oh-sub {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: rgba(255, 255, 255, 0.38);
+  animation: none;
+}
+
 @keyframes ohTextFade {
   0%, 100% { opacity: 0.55; }
   50% { opacity: 1; }

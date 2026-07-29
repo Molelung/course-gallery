@@ -84,6 +84,44 @@ export default class IntroAnimation {
       y: -0.5 - rl.y,
       z: (camZ - dB) - rl.z
     };
+
+    // Parked pose: the OTHER instructor's roll waits here — peeking in from
+    // the right edge, slightly lower & further back, hinting it's swipeable.
+    const halfWA = fovTan * dA * cam.aspect;
+    this.posePark = {
+      x: (halfWA * 0.62) - rl.x,
+      y: centre.y - 0.12 - rl.y,
+      z: (camZ - dA - 1.4) - rl.z
+    };
+    // Off-screen left: where the incoming roll starts on a right-swipe,
+    // and where the outgoing roll exits on a left-swipe.
+    this.poseOffL = {
+      x: (-halfWA * 0.62) - rl.x,
+      y: this.posePark.y,
+      z: this.posePark.z
+    };
+    // Fully off-screen right: the parked roll retreats here while the
+    // active roll is unrolled (done / opening).
+    this.poseOffR = {
+      x: (halfWA * 1.5) - rl.x,
+      y: this.posePark.y,
+      z: this.posePark.z
+    };
+  }
+
+  /**
+   * Point the intro at another reel (both reels share identical geometry,
+   * so the poses computed above stay valid). Applies the current mode's
+   * canonical pose to the newly attached reel.
+   */
+  attach(film) {
+    this.object = film;
+    if (this.mode === "armed") this._applyPose(this.poseA);
+    else if (this.mode === "done") {
+      film.setUnroll(1);
+      film.rotation.y = 0;
+      film.position.set(0, 0, 0);
+    }
   }
 
   _applyPose(p) {
@@ -126,8 +164,10 @@ export default class IntroAnimation {
   update() {
     if (this.mode === "done") return;
 
-    // Armed idle: a slow, gentle bob so the roll feels alive while waiting
+    // Armed idle: a slow, gentle bob so the roll feels alive while waiting.
+    // `suspended` freezes this while main.js runs a reel-switch tween.
     if (this.mode === "armed") {
+      if (this.suspended) return;
       const bob = Math.sin(performance.now() * 0.0012) * 0.06;
       this.object.position.set(this.poseA.x, this.poseA.y + bob, this.poseA.z);
       return;

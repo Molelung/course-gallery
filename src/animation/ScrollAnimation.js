@@ -98,6 +98,21 @@ export default class CarouselController {
   }
 
   /**
+   * Rebind to another reel (instructor switch): reset offsets so the new
+   * strip starts on its first frame.
+   */
+  setReel(reel) {
+    this.reel = reel;
+    this.frameCount = reel.frameCount;
+    this.currentOffset = 0;
+    this.targetOffset = 0;
+    this.vel = 0;
+    this.lastActiveIndex = 0;
+    reel.setOffset(0);
+    reel.setBend(0);
+  }
+
+  /**
    * Advance by whole frames (positive = next).
    */
   step(n) {

@@ -10,7 +10,7 @@ import IntroAnimation from "./animation/IntroAnimation.js";
 import Interaction from "./animation/Interaction.js";
 import CarouselController from "./animation/ScrollAnimation.js";
 import DetailView from "./animation/DetailView.js";
-import { getDefaultFrames } from "./utils/CanvasTexture.js";
+import { COURSE_SETS } from "./utils/CanvasTexture.js";
 
 //////////////////////////////////////////////////
 // Init
@@ -25,8 +25,13 @@ const pmrem = new THREE.PMREMGenerator(renderer.renderer);
 sceneManager.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 pmrem.dispose();
 
-const film = new FilmReel();
-sceneManager.add(film);
+// One reel of film per instructor. The active one sits dead centre; the
+// other waits parked at the edge of the screen — swipe to switch.
+const reels = COURSE_SETS.map((set) => new FilmReel(set));
+reels.forEach((r) => sceneManager.add(r));
+let activeIdx = 0;
+let film = reels[activeIdx];
+let frameData = COURSE_SETS[activeIdx].frames;
 
 const camera = new Camera();
 camera.attach(film);
@@ -41,62 +46,86 @@ const postProcessing = new PostProcessing(
 const intro = new IntroAnimation(film, camera);
 const interaction = new Interaction(camera.camera);
 
+// The other instructor's roll waits at its parked spot, peeking in from the
+// right edge; it retreats off-screen while the active roll is unrolled.
+let parkedPeek = { ...intro.posePark };
+reels[1].position.set(parkedPeek.x, parkedPeek.y, parkedPeek.z);
+
 // Hide the UI chrome until the opening sequence is underway
 document.body.classList.add("intro-pending");
 const revealChrome = () => document.body.classList.remove("intro-pending");
 
 // The opening is USER-TRIGGERED: once the loader fades, the roll sits
-// centred (armed) with a hint. First click begins the sequence; a click
-// during the sequence skips to the end. Carousel/drag stays off until done.
+// centred (armed) with a hint. A TAP opens it; a horizontal SWIPE switches
+// to the other instructor's roll; a click during the sequence skips ahead.
 const flatStart = new URLSearchParams(location.search).has("flat");
 if (flatStart) {
   intro.skipToEnd();
+  reels[1].visible = false;
 } else {
   document.body.classList.add("intro-active");
   setTimeout(() => {
     if (!intro.finished) document.body.classList.add("intro-armed");
   }, 800);
 
+  // Armed gestures — tap-vs-swipe is judged across the whole press, so a
+  // swipe never fires the opening and a tap never switches reels.
+  let armTrack = null; // { x, y, swiped }
+
   window.addEventListener("pointerdown", (e) => {
     if (e.target.closest("button") || e.target.closest("a")) return;
     if (document.body.classList.contains("intro-armed")) {
-      document.body.classList.remove("intro-armed");
-      intro.begin();
-      setTimeout(revealChrome, 2000);
+      armTrack = { x: e.clientX, y: e.clientY, swiped: false };
     } else if (!intro.finished) {
       document.body.classList.remove("intro-armed");
       intro.skipToEnd();
     }
   });
+
+  window.addEventListener("pointermove", (e) => {
+    if (!armTrack || armTrack.swiped) return;
+    const dx = e.clientX - armTrack.x;
+    const dy = e.clientY - armTrack.y;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      armTrack.swiped = true;
+      switchReel(dx < 0 ? 1 : -1);
+    }
+  });
+
+  window.addEventListener("pointerup", (e) => {
+    if (!armTrack) return;
+    const moved = Math.hypot(e.clientX - armTrack.x, e.clientY - armTrack.y);
+    if (!armTrack.swiped && moved < 10 && intro.mode === "armed") {
+      document.body.classList.remove("intro-armed");
+      intro.begin();
+      setTimeout(revealChrome, 2000);
+    }
+    armTrack = null;
+  });
+
+  window.addEventListener("pointercancel", () => { armTrack = null; });
 }
 
 // Debug handles for headless verification
 window.__film = film;
 window.__intro = intro;
 
-// Frame data for UI updates
-const frameData = getDefaultFrames();
+//////////////////////////////////////////////////
+// Per-reel UI (dots / texts are rebuilt on every instructor switch)
+//////////////////////////////////////////////////
 
-// Build dot indicators
 const indicatorsEl = document.querySelector("#indicators");
-for (let i = 0; i < frameData.length; i++) {
-  const dot = document.createElement("div");
-  dot.className = "dot" + (i === 0 ? " active" : "");
-  dot.addEventListener("click", () => carousel.goToFrame(i));
-  indicatorsEl.appendChild(dot);
+
+function updateFrameInfo(index) {
+  document.querySelector("#frame-title").textContent = frameData[index].title;
+  document.querySelector("#frame-subtitle").textContent = frameData[index].subtitle;
+  const dots = indicatorsEl.querySelectorAll(".dot");
+  dots.forEach((d, i) => d.classList.toggle("active", i === index));
 }
 
 // Carousel controller with frame change callback
 const carousel = new CarouselController(film, {
-  onFrameChange: (index) => {
-    // Update text
-    document.querySelector("#frame-title").textContent = frameData[index].title;
-    document.querySelector("#frame-subtitle").textContent = frameData[index].subtitle;
-
-    // Update dots
-    const dots = indicatorsEl.querySelectorAll(".dot");
-    dots.forEach((d, i) => d.classList.toggle("active", i === index));
-  }
+  onFrameChange: (index) => updateFrameInfo(index)
 });
 
 // Detail view: scroll / click to enter the active frame
@@ -104,6 +133,62 @@ const detail = new DetailView(camera, film, carousel, frameData);
 
 // Drag & gestures stay off until the opening sequence finishes
 if (!intro.finished) carousel.enabled = false;
+
+function rebuildDots() {
+  indicatorsEl.innerHTML = "";
+  frameData.forEach((_, i) => {
+    const dot = document.createElement("div");
+    dot.className = "dot" + (i === 0 ? " active" : "");
+    dot.addEventListener("click", () => carousel.goToFrame(i));
+    indicatorsEl.appendChild(dot);
+  });
+}
+rebuildDots();
+
+//////////////////////////////////////////////////
+// Reel switching — swipe (armed) & simple-mode jump (instant)
+//////////////////////////////////////////////////
+
+// Slide tween state for the armed-state swipe switch
+const reelSwitch = {
+  active: false, t0: 0, dur: 620, newIdx: 0,
+  curFrom: null, curTo: null, newFrom: null
+};
+
+/** Point every subsystem at another reel and rebuild its UI. */
+function bindActiveReel(idx) {
+  activeIdx = idx;
+  film = reels[idx];
+  frameData = COURSE_SETS[idx].frames;
+  carousel.setReel(film);
+  detail.setReel(film, frameData);
+  intro.attach(film);
+  rebuildDots();
+  rebuildMenu();
+  updateFrameInfo(film.getActiveIndex());
+  window.__film = film;
+}
+
+/** Armed-state swipe: slide the current roll out, the other one in. */
+function switchReel(dir) {
+  if (intro.mode !== "armed" || reelSwitch.active) return;
+  const newIdx = (activeIdx + dir + reels.length) % reels.length;
+  if (newIdx === activeIdx) return;
+  const nr = reels[newIdx];
+  // The incoming roll must be a closed roll — it may have been left
+  // unrolled (but hidden) by a simple-mode jump earlier.
+  nr.setUnroll(0);
+  nr.rotation.y = 0;
+  reelSwitch.active = true;
+  reelSwitch.t0 = performance.now();
+  reelSwitch.newIdx = newIdx;
+  reelSwitch.curFrom = film.position.clone();
+  reelSwitch.curTo = dir > 0 ? { ...intro.poseOffL } : { ...intro.posePark };
+  reelSwitch.newFrom = nr.position.clone();
+  nr.visible = true;
+  nr.position.set(reelSwitch.newFrom.x, reelSwitch.newFrom.y, reelSwitch.newFrom.z);
+  intro.suspended = true; // freeze the idle bob while the tween owns positions
+}
 
 //////////////////////////////////////////////////
 // Long-press on the laid film → wind it back onto the roll
@@ -129,8 +214,12 @@ window.addEventListener("pointerdown", (e) => {
   lpY = e.clientY;
   lpTimer = setTimeout(() => {
     lpTimer = null;
-    // Wind back: freeze input & chrome; onRewound re-arms the opening
+    // Wind back: freeze input & chrome; onRewound re-arms the opening.
+    // The parked roll must also be a closed roll when it comes back.
     carousel.enabled = false;
+    reels.forEach((r) => {
+      if (r !== film) { r.setUnroll(0); r.rotation.y = 0; }
+    });
     document.body.classList.add("intro-pending", "intro-active");
     intro.rewind();
   }, LP_HOLD);
@@ -169,8 +258,10 @@ function syncMenuActive() {
   });
 }
 
-// Build the course catalog dynamically from frame data
-if (courseListEl) {
+// (Re)build the course catalog from the active reel's frame data
+function rebuildMenu() {
+  if (!courseListEl) return;
+  courseListEl.innerHTML = "";
   frameData.forEach((f, i) => {
     const li = document.createElement("li");
     const a = document.createElement("a");
@@ -189,7 +280,13 @@ if (courseListEl) {
     li.appendChild(a);
     courseListEl.appendChild(li);
   });
+  const label = document.querySelector(".menu-section-label");
+  if (label) {
+    const set = COURSE_SETS[activeIdx];
+    label.textContent = `${set.instructor} · 课程目录 · ${set.frames.length} 节`;
+  }
 }
+rebuildMenu();
 
 if (menuToggle) menuToggle.addEventListener("click", openMenu);
 if (menuClose) menuClose.addEventListener("click", closeMenu);
@@ -229,10 +326,33 @@ window.addEventListener("keydown", (e) => {
 
 const modeToggle = document.querySelector("#mode-toggle");
 const simpleGrid = document.querySelector("#simple-grid");
+const simpleTabs = document.querySelector("#simple-tabs");
+let simpleTabIdx = 0;
 
-// Build the plain catalog cards from the same frame data
-if (simpleGrid) {
-  frameData.forEach((f, i) => {
+// Build the instructor tabs (二级目录): one tab per course set
+if (simpleTabs) {
+  COURSE_SETS.forEach((set, i) => {
+    const tab = document.createElement("button");
+    tab.className = "simple-tab";
+    tab.textContent = set.instructor;
+    tab.addEventListener("click", () => {
+      simpleTabIdx = i;
+      buildSimpleGrid();
+    });
+    simpleTabs.appendChild(tab);
+  });
+}
+
+// Build the plain catalog cards for the selected instructor
+function buildSimpleGrid() {
+  if (!simpleGrid) return;
+  const set = COURSE_SETS[simpleTabIdx];
+  const heading = document.querySelector(".simple-heading");
+  const sub = document.querySelector(".simple-sub");
+  if (heading) heading.textContent = `${set.series}课程`;
+  if (sub) sub.textContent = `${set.frames.length} 节 · 讲师 ${set.instructor}`;
+  simpleGrid.innerHTML = "";
+  set.frames.forEach((f, i) => {
     const card = document.createElement("button");
     card.className = "simple-card";
     card.innerHTML =
@@ -240,19 +360,35 @@ if (simpleGrid) {
       `<span class="sc-title">${f.title}</span>` +
       `<span class="sc-sub">${f.subtitle}</span>`;
     card.addEventListener("click", () => {
+      // Picking another instructor's course instantly swaps the laid-out
+      // reel underneath — no need to replay the opening.
+      if (simpleTabIdx !== activeIdx) {
+        reels[activeIdx].visible = false;
+        bindActiveReel(simpleTabIdx);
+        film.visible = true;
+        intro.skipToEnd();
+      }
       // Straight to the reading page — no 3D interaction in simple mode
       carousel.goToFrame(i);
       detail.setStage(2);
     });
     simpleGrid.appendChild(card);
   });
+  if (simpleTabs) {
+    simpleTabs.querySelectorAll(".simple-tab").forEach((t, i) =>
+      t.classList.toggle("active", i === simpleTabIdx));
+  }
 }
+buildSimpleGrid();
 
 function setSimpleMode(on) {
   document.body.classList.toggle("simple-mode", on);
   if (modeToggle) modeToggle.classList.toggle("on", on);
   if (on) {
-    // Leave any open stage, freeze the 3D drag, show the plain catalog
+    // Leave any open stage, freeze the 3D drag, show the plain catalog —
+    // opened on the tab of the reel currently on screen.
+    simpleTabIdx = activeIdx;
+    buildSimpleGrid();
     detail.setStage(0);
     carousel.enabled = false;
   } else {
@@ -276,6 +412,8 @@ const clock = new THREE.Clock();
 // Animation Loop
 //////////////////////////////////////////////////
 
+let parkedT = flatStart ? 0 : 1; // 1 = parked roll peeking in, 0 = retreated
+
 function animate() {
   requestAnimationFrame(animate);
 
@@ -287,6 +425,41 @@ function animate() {
   interaction.update();
   carousel.update();
   detail.update();
+
+  // Armed-state reel-switch slide tween
+  if (reelSwitch.active) {
+    const k = Math.min(1, (performance.now() - reelSwitch.t0) / reelSwitch.dur);
+    const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    const nr = reels[reelSwitch.newIdx];
+    film.position.set(
+      reelSwitch.curFrom.x + (reelSwitch.curTo.x - reelSwitch.curFrom.x) * e,
+      reelSwitch.curFrom.y + (reelSwitch.curTo.y - reelSwitch.curFrom.y) * e,
+      reelSwitch.curFrom.z + (reelSwitch.curTo.z - reelSwitch.curFrom.z) * e
+    );
+    nr.position.set(
+      reelSwitch.newFrom.x + (intro.poseA.x - reelSwitch.newFrom.x) * e,
+      reelSwitch.newFrom.y + (intro.poseA.y - reelSwitch.newFrom.y) * e,
+      reelSwitch.newFrom.z + (intro.poseA.z - reelSwitch.newFrom.z) * e
+    );
+    if (k >= 1) {
+      reelSwitch.active = false;
+      intro.suspended = false;
+      parkedPeek = reelSwitch.curTo; // the old roll stays where it slid out
+      bindActiveReel(reelSwitch.newIdx);
+    }
+  } else {
+    // Parked-roll presence: peeks in while armed, retreats once unrolled
+    const pr = reels[1 - activeIdx];
+    const want = intro.mode === "armed" ? 1 : 0;
+    parkedT += (want - parkedT) * 0.07;
+    if (Math.abs(want - parkedT) < 0.005) parkedT = want;
+    pr.visible = parkedT > 0.03;
+    pr.position.set(
+      intro.poseOffR.x + (parkedPeek.x - intro.poseOffR.x) * parkedT,
+      intro.poseOffR.y + (parkedPeek.y - intro.poseOffR.y) * parkedT,
+      intro.poseOffR.z + (parkedPeek.z - intro.poseOffR.z) * parkedT
+    );
+  }
 
   // Opening finished (played through or skipped) → enable input & chrome
   if (intro.finished && document.body.classList.contains("intro-active")) {
