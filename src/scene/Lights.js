@@ -42,5 +42,19 @@ export default class Lights {
     // Low ambient base - keep shadows rich
     const ambient = new THREE.AmbientLight(0x445588, 0.3);
     scene.add(ambient);
+
+    // Phones render the same scene harsher (small screen, tight fov, and
+    // the key light lands right on the label). Give mobile a dedicated
+    // grade: an almost PURE side key at lower intensity, a much weaker
+    // frontal spot, and dimmer accents — the label ink stays readable.
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      keyLight.position.set(5.5, 1.5, 1.2);   // nearly 90° from the side
+      keyLight.intensity = 0.55;
+      spotLight.intensity = 0.7;
+      warmLight.intensity = 6;
+      coolLight.intensity = 5;
+      fillLight.intensity = 0.3;
+    }
   }
 }

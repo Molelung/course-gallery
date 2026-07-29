@@ -244,14 +244,19 @@ export default class FilmReel extends THREE.Group {
     labelTex.colorSpace = THREE.SRGBColorSpace;
 
     // Curved tag wrapping part of the roll's outer wrap, facing the camera.
-    // Almost no self-light — the scene lights it like real paper.
+    // Almost no self-light — the scene lights it like real paper. On phones
+    // the image-based lighting alone flattens the paper into a white slab,
+    // so the label leans on the (pure side) key light there instead.
+    const isMobile = window.innerWidth < 768;
     const arc = 1.7; // radians of circumference the label covers
     const geo = new THREE.CylinderGeometry(
       1.02, 1.02, 0.44, 40, 1, true, -arc / 2, arc
     );
     const mat = new THREE.MeshStandardMaterial({
       map: labelTex, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide,
-      emissive: 0xffffff, emissiveMap: labelTex, emissiveIntensity: 0.06
+      emissive: 0xffffff, emissiveMap: labelTex,
+      emissiveIntensity: isMobile ? 0.04 : 0.06,
+      envMapIntensity: isMobile ? 0.35 : 1.0
     });
     const label = new THREE.Mesh(geo, mat);
     label.rotation.z = 0.05;   // stuck on slightly askew, like a real sticker
