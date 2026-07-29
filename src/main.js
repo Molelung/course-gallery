@@ -73,16 +73,28 @@ if (flatStart) {
 
   // Armed gestures — tap-vs-swipe is judged across the whole press, so a
   // swipe never fires the opening and a tap never switches reels.
+  // While an open / rewind animation is PLAYING, all input is ignored:
+  // the choreography always runs to completion (no click-to-skip).
   let armTrack = null; // { x, y, swiped }
+
+  // Raycast helper: did this tap land on the parked (other instructor's)
+  // roll? Tapping it switches reels instead of opening the active one.
+  const _raycaster = new THREE.Raycaster();
+  const _ndc = new THREE.Vector2();
+  const hitRoll = (clientX, clientY, reel) => {
+    if (!reel.visible) return false;
+    _ndc.set((clientX / window.innerWidth) * 2 - 1,
+             -(clientY / window.innerHeight) * 2 + 1);
+    _raycaster.setFromCamera(_ndc, camera.camera);
+    return _raycaster.intersectObject(reel.rollGroup, true).length > 0;
+  };
 
   window.addEventListener("pointerdown", (e) => {
     if (e.target.closest("button") || e.target.closest("a")) return;
     if (document.body.classList.contains("intro-armed")) {
       armTrack = { x: e.clientX, y: e.clientY, swiped: false };
-    } else if (!intro.finished) {
-      document.body.classList.remove("intro-armed");
-      intro.skipToEnd();
     }
+    // opening / rewinding: input intentionally ignored
   });
 
   window.addEventListener("pointermove", (e) => {
@@ -99,9 +111,15 @@ if (flatStart) {
     if (!armTrack) return;
     const moved = Math.hypot(e.clientX - armTrack.x, e.clientY - armTrack.y);
     if (!armTrack.swiped && moved < 10 && intro.mode === "armed") {
-      document.body.classList.remove("intro-armed");
-      intro.begin();
-      setTimeout(revealChrome, 2000);
+      const parked = reels[1 - activeIdx];
+      if (hitRoll(e.clientX, e.clientY, parked)) {
+        // Tapped the roll peeking in from the edge → bring IT to centre
+        switchReel(parked.position.x > film.position.x ? 1 : -1);
+      } else {
+        document.body.classList.remove("intro-armed");
+        intro.begin();
+        setTimeout(revealChrome, 2000);
+      }
     }
     armTrack = null;
   });
