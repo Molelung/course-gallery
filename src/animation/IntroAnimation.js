@@ -85,28 +85,23 @@ export default class IntroAnimation {
       z: (camZ - dB) - rl.z
     };
 
-    // Parked pose: the OTHER instructor's roll waits here — peeking in from
-    // the right edge, slightly lower & further back, hinting it's swipeable.
+    // Parked poses for the OTHER instructor's roll:
+    //  - peek (±62% of half-width): a slice of the roll visible at the edge,
+    //    hinting it's swipeable — only used when the screen is WIDE enough
+    //    that two rolls can't overlap (on phones a single roll is already
+    //    wider than the half-width, so peeking would look like a collision)
+    //  - off (±190% of half-width): fully outside the frustum on any device
     const halfWA = fovTan * dA * cam.aspect;
-    this.posePark = {
-      x: (halfWA * 0.62) - rl.x,
+    this.peekAllowed = halfWA * 0.62 > 1.45;
+    const mkPose = (halfWFrac) => ({
+      x: (halfWA * halfWFrac) - rl.x,
       y: centre.y - 0.12 - rl.y,
       z: (camZ - dA - 1.4) - rl.z
-    };
-    // Off-screen left: where the incoming roll starts on a right-swipe,
-    // and where the outgoing roll exits on a left-swipe.
-    this.poseOffL = {
-      x: (-halfWA * 0.62) - rl.x,
-      y: this.posePark.y,
-      z: this.posePark.z
-    };
-    // Fully off-screen right: the parked roll retreats here while the
-    // active roll is unrolled (done / opening).
-    this.poseOffR = {
-      x: (halfWA * 1.5) - rl.x,
-      y: this.posePark.y,
-      z: this.posePark.z
-    };
+    });
+    this.posePeekR = mkPose(0.62);
+    this.posePeekL = mkPose(-0.62);
+    this.poseOffR = mkPose(1.9);
+    this.poseOffL = mkPose(-1.9);
   }
 
   /**

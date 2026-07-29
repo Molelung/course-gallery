@@ -182,18 +182,20 @@ export default class FilmReel extends THREE.Group {
     c.height = 192;
     const x = c.getContext("2d");
 
-    // Label stock — warm off-white, darker toward the edges like aged paper
+    // Label stock — muted kraft off-white. Kept deliberately DARKER than a
+    // fresh sheet of paper: a bright tag blooms into a featureless glow
+    // under the post-processing, and the name becomes unreadable.
     const paper = x.createLinearGradient(0, 0, 0, 192);
-    paper.addColorStop(0, "#efe8d6");
-    paper.addColorStop(0.5, "#e7ddc6");
-    paper.addColorStop(1, "#d9cdae");
+    paper.addColorStop(0, "#d6cab0");
+    paper.addColorStop(0.5, "#c9bb9c");
+    paper.addColorStop(1, "#b3a482");
     x.fillStyle = paper;
     x.fillRect(0, 0, 512, 192);
 
     // Faint paper fibres
-    x.globalAlpha = 0.05;
+    x.globalAlpha = 0.06;
     for (let i = 0; i < 260; i++) {
-      x.strokeStyle = Math.random() > 0.5 ? "#8a7d5e" : "#ffffff";
+      x.strokeStyle = Math.random() > 0.5 ? "#6e6246" : "#efe8d6";
       x.lineWidth = 1;
       const fx = Math.random() * 512, fy = Math.random() * 192;
       x.beginPath();
@@ -204,52 +206,52 @@ export default class FilmReel extends THREE.Group {
     x.globalAlpha = 1;
 
     // Double border like a printed luggage tag
-    x.strokeStyle = "rgba(74,60,38,0.85)";
-    x.lineWidth = 4;
+    x.strokeStyle = "rgba(52,40,22,0.9)";
+    x.lineWidth = 5;
     x.strokeRect(10, 10, 492, 172);
-    x.lineWidth = 1.5;
+    x.lineWidth = 2;
     x.strokeRect(20, 20, 472, 152);
 
     // Punched hole + reinforcement ring (left side, like a tag you could tie)
     x.beginPath();
-    x.arc(66, 96, 26, 0, Math.PI * 2);
-    x.strokeStyle = "rgba(74,60,38,0.7)";
-    x.lineWidth = 6;
+    x.arc(62, 96, 25, 0, Math.PI * 2);
+    x.strokeStyle = "rgba(52,40,22,0.75)";
+    x.lineWidth = 7;
     x.stroke();
     x.beginPath();
-    x.arc(66, 96, 14, 0, Math.PI * 2);
-    x.fillStyle = "#2a2419";
+    x.arc(62, 96, 13, 0, Math.PI * 2);
+    x.fillStyle = "#211a10";
     x.fill();
 
-    // Instructor name — the point of the label
+    // Instructor name — the point of the label: big, dark, unmistakable
     x.textBaseline = "middle";
-    x.fillStyle = "#33291a";
+    x.fillStyle = "#1d1508";
     x.textAlign = "left";
     const zhFont = "'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif";
-    x.font = `bold 84px ${zhFont}`;
-    x.fillText(this.instructor, 122, 84);
+    x.font = `bold 96px ${zhFont}`;
+    x.fillText(this.instructor, 116, 82);
     // Caption under the name
     x.font = `600 30px ${zhFont}`;
-    x.fillStyle = "rgba(74,60,38,0.85)";
-    x.fillText(`讲师 · ${this.courseSet.series}`, 124, 148);
+    x.fillStyle = "rgba(52,40,22,0.9)";
+    x.fillText(`讲师 · ${this.courseSet.series}`, 118, 150);
     // Small print on the right
     x.textAlign = "right";
     x.font = "600 22px 'Courier New', monospace";
-    x.fillStyle = "rgba(74,60,38,0.55)";
-    x.fillText("35MM · COURSE GALLERY", 484, 34);
+    x.fillStyle = "rgba(52,40,22,0.6)";
+    x.fillText("35MM · COURSE GALLERY", 484, 36);
 
     const labelTex = new THREE.CanvasTexture(c);
     labelTex.colorSpace = THREE.SRGBColorSpace;
 
-    // Curved tag wrapping part of the roll's outer wrap, facing the camera
-    const arc = 1.5; // radians of circumference the label covers
+    // Curved tag wrapping part of the roll's outer wrap, facing the camera.
+    // Almost no self-light — the scene lights it like real paper.
+    const arc = 1.7; // radians of circumference the label covers
     const geo = new THREE.CylinderGeometry(
-      1.02, 1.02, 0.36, 40, 1, true, -arc / 2, arc
+      1.02, 1.02, 0.44, 40, 1, true, -arc / 2, arc
     );
     const mat = new THREE.MeshStandardMaterial({
-      map: labelTex, roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide,
-      // Slightly self-lit so the paper tag stays readable in the dark scene
-      emissive: 0xffffff, emissiveMap: labelTex, emissiveIntensity: 0.28
+      map: labelTex, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide,
+      emissive: 0xffffff, emissiveMap: labelTex, emissiveIntensity: 0.06
     });
     const label = new THREE.Mesh(geo, mat);
     label.rotation.z = 0.05;   // stuck on slightly askew, like a real sticker

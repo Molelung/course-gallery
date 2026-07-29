@@ -9,7 +9,8 @@ import * as THREE from "three";
  *
  * Scroll down / swipe up / pinch-out  -> go one stage deeper
  * Scroll up / swipe down / pinch-in   -> go one stage back
- * Long-press (mobile)                 -> jump straight into the detail page
+ * (Long-press is reserved globally for rewinding the film onto its roll —
+ *  this view no longer uses it as a shortcut into the course page.)
  * On the course page, scrolling past the bottom seamlessly loads the NEXT
  * course (with a "keep scrolling" buffer hint so it never feels abrupt).
  */
@@ -116,27 +117,8 @@ export default class DetailView {
       this._touchStartX = e.touches[0].clientX;
       this._touchStartTime = performance.now();
       this._longPressFired = false;
-
-      // Long-press (550ms without moving) → straight into the detail page
-      if (this.stage < 2 && !e.target.closest("button") && !e.target.closest("a") && !e.target.closest("#indicators")) {
-        const sx = e.touches[0].clientX;
-        const sy = e.touches[0].clientY;
-        clearLongPress();
-        this._longPressTimer = setTimeout(() => {
-          this._longPressFired = true;
-          if (navigator.vibrate) navigator.vibrate(18);
-          if (this.stage === 0) {
-            const idx = this._raycastIndex(sx, sy);
-            if (idx != null && idx !== this.reel.getActiveIndex()) {
-              this.carousel.goToFrame(idx);
-              this.setStage(2);
-              this.fillCoursePage(this.frameData[idx], idx);
-              return;
-            }
-          }
-          this.setStage(2);
-        }, 550);
-      }
+      // NB: no long-press shortcut here — long-press is the global
+      // "rewind the film" gesture (handled in main.js).
     }, { passive: true });
 
     window.addEventListener("touchmove", (e) => {

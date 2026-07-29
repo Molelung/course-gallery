@@ -46,10 +46,13 @@ const postProcessing = new PostProcessing(
 const intro = new IntroAnimation(film, camera);
 const interaction = new Interaction(camera.camera);
 
-// The other instructor's roll waits at its parked spot, peeking in from the
-// right edge; it retreats off-screen while the active roll is unrolled.
-let parkedPeek = { ...intro.posePark };
+// The other instructor's roll waits at its parked spot. On wide screens it
+// peeks in from the right edge; on narrow (portrait phone) screens a peek
+// would overlap the centred roll, so it hides fully off-screen instead and
+// the reel-dots / swipe hint carry the discovery.
+let parkedPeek = intro.peekAllowed ? { ...intro.posePeekR } : { ...intro.poseOffR };
 reels[1].position.set(parkedPeek.x, parkedPeek.y, parkedPeek.z);
+reels[1].visible = intro.peekAllowed;
 
 // Hide the UI chrome until the opening sequence is underway
 document.body.classList.add("intro-pending");
@@ -111,6 +114,29 @@ window.__film = film;
 window.__intro = intro;
 
 //////////////////////////////////////////////////
+// Reel dots — tappable instructor switcher in the opening hint
+//////////////////////////////////////////////////
+
+const reelDotsEl = document.querySelector("#reel-dots");
+if (reelDotsEl) {
+  COURSE_SETS.forEach((set, i) => {
+    const b = document.createElement("button");
+    b.className = "reel-dot" + (i === activeIdx ? " active" : "");
+    b.textContent = set.instructor;
+    b.addEventListener("click", () => {
+      if (i !== activeIdx) switchReel(i > activeIdx ? 1 : -1);
+    });
+    reelDotsEl.appendChild(b);
+  });
+}
+
+function syncReelDots() {
+  if (!reelDotsEl) return;
+  reelDotsEl.querySelectorAll(".reel-dot").forEach((d, i) =>
+    d.classList.toggle("active", i === activeIdx));
+}
+
+//////////////////////////////////////////////////
 // Per-reel UI (dots / texts are rebuilt on every instructor switch)
 //////////////////////////////////////////////////
 
@@ -166,6 +192,7 @@ function bindActiveReel(idx) {
   rebuildDots();
   rebuildMenu();
   updateFrameInfo(film.getActiveIndex());
+  syncReelDots();
   window.__film = film;
 }
 
@@ -183,7 +210,13 @@ function switchReel(dir) {
   reelSwitch.t0 = performance.now();
   reelSwitch.newIdx = newIdx;
   reelSwitch.curFrom = film.position.clone();
-  reelSwitch.curTo = dir > 0 ? { ...intro.poseOffL } : { ...intro.posePark };
+  // Wide screens: the outgoing roll docks at the opposite edge's peek spot;
+  // narrow screens: it exits the frustum entirely (no peeking there).
+  if (intro.peekAllowed) {
+    reelSwitch.curTo = dir > 0 ? { ...intro.posePeekL } : { ...intro.posePeekR };
+  } else {
+    reelSwitch.curTo = dir > 0 ? { ...intro.poseOffL } : { ...intro.poseOffR };
+  }
   reelSwitch.newFrom = nr.position.clone();
   nr.visible = true;
   nr.position.set(reelSwitch.newFrom.x, reelSwitch.newFrom.y, reelSwitch.newFrom.z);
@@ -214,8 +247,12 @@ window.addEventListener("pointerdown", (e) => {
   lpY = e.clientY;
   lpTimer = setTimeout(() => {
     lpTimer = null;
-    // Wind back: freeze input & chrome; onRewound re-arms the opening.
-    // The parked roll must also be a closed roll when it comes back.
+    // Re-verify at fire time: the state may have changed during the hold
+    // (e.g. a course page opened underneath the finger).
+    if (intro.mode !== "done" || detail.stage !== 0) return;
+    // Wind back: close any open stage, freeze input & chrome; onRewound
+    // re-arms the opening. The parked roll must also be a closed roll.
+    detail.setStage(0);
     carousel.enabled = false;
     reels.forEach((r) => {
       if (r !== film) { r.setUnroll(0); r.rotation.y = 0; }
@@ -448,16 +485,22 @@ function animate() {
       bindActiveReel(reelSwitch.newIdx);
     }
   } else {
-    // Parked-roll presence: peeks in while armed, retreats once unrolled
+    // Parked-roll presence: docks at its peek spot while armed; once the
+    // active roll starts unrolling it SINKS back into the fog — drops a
+    // touch and recedes far down the depth axis instead of crawling
+    // sideways across the screen.
     const pr = reels[1 - activeIdx];
     const want = intro.mode === "armed" ? 1 : 0;
-    parkedT += (want - parkedT) * 0.07;
+    parkedT += (want - parkedT) * 0.14;
     if (Math.abs(want - parkedT) < 0.005) parkedT = want;
     pr.visible = parkedT > 0.03;
+    const sx = parkedPeek.x;
+    const sy = parkedPeek.y - 0.5;
+    const sz = parkedPeek.z - 9;
     pr.position.set(
-      intro.poseOffR.x + (parkedPeek.x - intro.poseOffR.x) * parkedT,
-      intro.poseOffR.y + (parkedPeek.y - intro.poseOffR.y) * parkedT,
-      intro.poseOffR.z + (parkedPeek.z - intro.poseOffR.z) * parkedT
+      sx + (parkedPeek.x - sx) * parkedT,
+      sy + (parkedPeek.y - sy) * parkedT,
+      sz + (parkedPeek.z - sz) * parkedT
     );
   }
 
