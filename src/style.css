@@ -755,12 +755,8 @@ body.detail-mode #hint {
 
 /* ===== Mobile Adaptation ===== */
 @media (max-width: 768px) {
-  /* Lift the film up a touch so it doesn't sit dead-center with a big
-     empty band above it — reduces the top whitespace on phones. */
-  #webgl {
-    transform: translateY(-3vh);
-    will-change: transform;
-  }
+  /* The closed roll is centred exactly in 3D (see IntroAnimation) — do NOT
+     lift the canvas here; that old -3vh shift pushed it off-centre. */
 
   #site-header {
     padding: calc(14px + env(safe-area-inset-top, 0px)) 20px 14px;

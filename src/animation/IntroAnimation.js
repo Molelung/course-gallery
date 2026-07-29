@@ -1,57 +1,79 @@
 import * as THREE from "three";
 
 /**
- * IntroAnimation — the opening choreography (user-triggered, not autoplay):
+ * IntroAnimation — the opening choreography (user-triggered, reversible):
  *
- *   ARMED          after loading, the roll sits DEAD CENTRE on screen with
- *                  a gentle idle bob, waiting — a hint asks for a click
- *   Act 1 (1.3s)   on click: the roll drifts slowly to the LEFT edge
- *   Act 2 (4.4s)   the film is pulled out of the roll, streaming across the
- *                  screen into the winding strip, slowing to a stop with no
- *                  overshoot (easeInOutCubic — 慢慢停下)
- *   Click again during the acts to skip straight to the laid-out strip.
+ *   armed        after loading, the roll sits DEAD CENTRE on screen with a
+ *                gentle idle bob, waiting — a hint asks for a click
+ *   opening      Act 1 (1.3s): the roll drifts slowly to the LEFT edge
+ *                Act 2 (4.4s): the film is pulled out of the roll, streaming
+ *                across the screen (easeInOutCubic — 慢慢停下)
+ *   done         the strip lies flat; carousel input is enabled
+ *   rewinding    long-press on the laid film: the exact reverse — the film
+ *                winds back onto the roll (2.4s), then the roll drifts home
+ *                (1.1s) and the piece is armed again, ready to re-open.
  *
- * Centring is EXACT: the group pose is computed from the roll's local
- * position (film.rollLocal) and the camera, so the roll sits at world
- * (0,0,·) on every device / aspect ratio.
+ * Centring is EXACT on every device / aspect ratio:
+ *   1. the roll's local anchor (film.rollLocal) is rotated by the group's
+ *      constant z-tilt first — forgetting that tilt used to leave the roll
+ *      ~0.4 world units too high ("从来都不居中，太过偏上");
+ *   2. the centred target is the point on the camera's view axis at a fixed
+ *      distance, derived from the live camera (fov, fit distance), so it
+ *      reads the centre smartly instead of assuming one.
  */
 export default class IntroAnimation {
 
   constructor(object, cameraWrapper) {
     this.object = object;
     this.cameraWrapper = cameraWrapper;
-    this.finished = false;
-    this._running = false;
+    this.mode = "armed";          // armed | opening | done | rewinding
 
     this.travelDur = 1300;
     this.pullDur = 4400;
+    this.rewindPullDur = 2400;    // winding back is brisker than the pull-out
+    this.rewindHomeDur = 1100;    // the roll then drifts back to centre
     this._t0 = null;
+
+    this.onRewound = null;        // fired once the roll is home & armed again
 
     this.object.visible = true;
     this.object.setUnroll(0);
     this.object.rotation.y = 0;
 
+    this.poseHome = { x: 0, y: 0, z: 0 };
     this._computePoses();
     this._applyPose(this.poseA);
   }
 
+  /** Laid flat & browsable. (Read-only flag — drive with begin/skip/rewind.) */
+  get finished() { return this.mode === "done"; }
+
   /**
-   * Group pose = desired roll world position − the roll's local position.
-   * Roll world targets are derived from the actual camera (distance, fov,
-   * aspect), so centring and edge placement are exact on any device.
+   * Group pose = desired roll world position − the roll's local anchor,
+   * with the anchor pre-rotated by the group's constant z-tilt. Roll world
+   * targets come from the actual camera (distance, fov, aspect), so
+   * centring and edge placement are exact on any device.
    */
   _computePoses() {
     const cam = this.cameraWrapper.camera;
     const camZ = this.cameraWrapper.baseZ;
     const fovTan = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
-    const rl = this.object.rollLocal;
 
-    // Armed pose: roll dead-centre, close & present
+    // The group carries a constant z-tilt (FilmReel.TILT ≈ -8°). The local
+    // anchor must be rotated by it too — otherwise the big X offset (-12)
+    // leaks into Y and the roll lands far above centre on every screen.
+    const rl = this.object.rollLocal.clone().applyEuler(this.object.rotation);
+
+    // Armed pose: dead centre = the point on the camera's view axis at
+    // distance dA, computed from the camera's real pose.
     const dA = 4.6;
+    const camPos = new THREE.Vector3(cam.position.x, cam.position.y, camZ);
+    const viewAxis = new THREE.Vector3(0, 0, 0).sub(camPos).normalize();
+    const centre = camPos.clone().addScaledVector(viewAxis, dA);
     this.poseA = {
-      x: 0 - rl.x,
-      y: -0.05 - rl.y,
-      z: (camZ - dA) - rl.z
+      x: centre.x - rl.x,
+      y: centre.y - rl.y,
+      z: centre.z - rl.z
     };
 
     // Act-1 end pose: roll at the left edge (72% out), further back
@@ -76,28 +98,36 @@ export default class IntroAnimation {
     );
   }
 
-  /** Trigger the sequence (called by the user's first click). */
+  /** Trigger the opening sequence (called by the user's click while armed). */
   begin() {
-    if (this._running || this.finished) return;
+    if (this.mode !== "armed") return;
     this._computePoses(); // re-check camera/aspect in case of resize
-    this._running = true;
-    this._t0 = null; // armed; stamped on the first update
+    this.mode = "opening";
+    this._t0 = null; // stamped on the first update
   }
 
   /** Fast-forward to the fully laid-out state (click-to-skip). */
   skipToEnd() {
-    this.finished = true;
-    this._running = false;
+    this.mode = "done";
+    this._t0 = null;
     this.object.setUnroll(1);
     this.object.rotation.y = 0;
     this.object.position.set(0, 0, 0);
   }
 
+  /** Long-press on the laid film: wind everything back onto the roll. */
+  rewind() {
+    if (this.mode !== "done") return;
+    this._computePoses(); // re-check camera/aspect in case of resize
+    this.mode = "rewinding";
+    this._t0 = null;
+  }
+
   update() {
-    if (this.finished) return;
+    if (this.mode === "done") return;
 
     // Armed idle: a slow, gentle bob so the roll feels alive while waiting
-    if (!this._running) {
+    if (this.mode === "armed") {
       const bob = Math.sin(performance.now() * 0.0012) * 0.06;
       this.object.position.set(this.poseA.x, this.poseA.y + bob, this.poseA.z);
       return;
@@ -105,9 +135,37 @@ export default class IntroAnimation {
 
     if (this._t0 === null) this._t0 = performance.now();
     const now = performance.now() - this._t0;
-    const T2 = this.travelDur;
-    const T3 = T2 + this.pullDur;
     const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    // --- Rewinding: the pull played backwards, then the roll drifts home ---
+    if (this.mode === "rewinding") {
+      const RP = this.rewindPullDur;
+      const RH = this.rewindHomeDur;
+
+      if (now < RP) {
+        // The laid film feeds back onto the roll as the group backs out
+        const e = ease(now / RP);
+        this._lerpPose(this.poseHome, this.poseB, e);
+        this.object.setUnroll(1 - e);
+        return;
+      }
+      if (now < RP + RH) {
+        // Fully wound — the closed roll travels back to dead centre
+        const e = ease((now - RP) / RH);
+        this._lerpPose(this.poseB, this.poseA, e);
+        this.object.setUnroll(0);
+        return;
+      }
+      this.mode = "armed";
+      this._t0 = null;
+      this.object.setUnroll(0);
+      this._applyPose(this.poseA);
+      if (this.onRewound) this.onRewound();
+      return;
+    }
+
+    // --- Opening ---
+    const T2 = this.travelDur;
 
     if (now < T2) {
       // Act 1 — drift to the left edge
@@ -119,7 +177,7 @@ export default class IntroAnimation {
 
     // Act 2 — the pull: unroll + dolly home over the same slow ease
     const e = ease(Math.min(1, (now - T2) / this.pullDur));
-    this._lerpPose(this.poseB, { x: 0, y: 0, z: 0 }, e);
+    this._lerpPose(this.poseB, this.poseHome, e);
     this.object.setUnroll(e);
 
     if (e >= 1) this.skipToEnd();

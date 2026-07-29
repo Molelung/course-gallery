@@ -106,6 +106,45 @@ const detail = new DetailView(camera, film, carousel, frameData);
 if (!intro.finished) carousel.enabled = false;
 
 //////////////////////////////////////////////////
+// Long-press on the laid film → wind it back onto the roll
+//////////////////////////////////////////////////
+// 650 ms hold with <12 px drift, only at the carousel level with no
+// overlay open. The roll then re-arms at dead centre and the "轻触展开胶卷"
+// hint returns, so the whole opening can be played again with a tap.
+const LP_HOLD = 650;
+const LP_DRIFT = 12;
+let lpTimer = null, lpX = 0, lpY = 0;
+
+const lpCancel = () => {
+  if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+};
+
+window.addEventListener("pointerdown", (e) => {
+  if (intro.mode !== "done") return;
+  if (detail.stage !== 0) return;
+  if (e.target.closest("button") || e.target.closest("a")) return;
+  const b = document.body.classList;
+  if (b.contains("simple-mode") || b.contains("menu-open") || b.contains("about-open")) return;
+  lpX = e.clientX;
+  lpY = e.clientY;
+  lpTimer = setTimeout(() => {
+    lpTimer = null;
+    // Wind back: freeze input & chrome; onRewound re-arms the opening
+    carousel.enabled = false;
+    document.body.classList.add("intro-pending", "intro-active");
+    intro.rewind();
+  }, LP_HOLD);
+});
+window.addEventListener("pointermove", (e) => {
+  if (!lpTimer) return;
+  if (Math.hypot(e.clientX - lpX, e.clientY - lpY) > LP_DRIFT) lpCancel();
+});
+window.addEventListener("pointerup", lpCancel);
+window.addEventListener("pointercancel", lpCancel);
+
+intro.onRewound = () => document.body.classList.add("intro-armed");
+
+//////////////////////////////////////////////////
 // Side Menu: hamburger -> course catalog + About Us
 //////////////////////////////////////////////////
 

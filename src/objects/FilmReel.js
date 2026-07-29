@@ -12,6 +12,14 @@ const STRIP_H = FRAME_HEIGHT + BORDER_H * 2;
 const TILT = -0.14; // diagonal tilt (~8°) like shader.se
 const SEGMENTS = 480;
 
+// ---- Wound-roll proportions (the closed, unopened look) ----
+// Slim and cylindrical like a real fresh roll of film — not a fat blob:
+// diameter ~1.3× the roll's width, few solid wound layers, visible axle.
+const ROLL_R0 = 0.66;         // outer radius of the fresh roll
+const ROLL_TURNS = 9;         // wound layers — few enough to read as solid film
+const ROLL_LAYER_DROP = 0.38; // radius loss from the outer wrap to the core
+const COIL_HALF_H = 0.5;      // a wound roll has constant width — no taper
+
 const _up = new THREE.Vector3(0, 1, 0);
 
 /**
@@ -62,60 +70,76 @@ export default class FilmReel extends THREE.Group {
    * The group is tilted toward the camera so the ringed face is visible.
    */
   _createRollFace() {
-    // Concentric-rings face texture (wound film layers + hub + core hole)
+    // Concentric-rings face texture (wound film layers + hub + axle hole).
+    // The base tone sits a touch lighter than the scene's near-black so the
+    // closed roll always reads against the background (跟背景略微不同).
     const c = document.createElement("canvas");
     c.width = c.height = 512;
     const x = c.getContext("2d");
-    x.fillStyle = "#14141b";
+    x.fillStyle = "#1e1e28";
     x.fillRect(0, 0, 512, 512);
     const cx = 256, cy = 256;
-    for (let r = 250; r > 78; r -= 7) {
+    // Wound film layers — alternating rings across the whole face
+    for (let r = 252; r > 96; r -= 6) {
       x.beginPath();
       x.arc(cx, cy, r, 0, Math.PI * 2);
-      x.strokeStyle = (r % 14 < 7) ? "rgba(46,46,58,0.85)" : "rgba(16,16,22,0.9)";
-      x.lineWidth = 4;
+      x.strokeStyle = (r % 12 < 6) ? "rgba(64,64,80,0.9)" : "rgba(28,28,38,0.9)";
+      x.lineWidth = 3.5;
       x.stroke();
     }
-    // Subtle sheen arcs on the face
+    // Soft plastic sheen across the face
+    const sheen = x.createRadialGradient(cx - 70, cy - 90, 20, cx, cy, 260);
+    sheen.addColorStop(0, "rgba(190,200,230,0.16)");
+    sheen.addColorStop(0.5, "rgba(190,200,230,0.04)");
+    sheen.addColorStop(1, "rgba(190,200,230,0)");
+    x.fillStyle = sheen;
     x.beginPath();
-    x.arc(cx, cy, 200, -0.9, 0.4);
-    x.strokeStyle = "rgba(160,170,200,0.14)";
-    x.lineWidth = 26;
-    x.stroke();
-    // Hub + spindle hole
+    x.arc(cx, cy, 256, 0, Math.PI * 2);
+    x.fill();
+    // Hub — the spool core the film is wound on (中间有胶卷轴)
     x.beginPath();
-    x.arc(cx, cy, 74, 0, Math.PI * 2);
-    x.fillStyle = "#2b2b36";
+    x.arc(cx, cy, 96, 0, Math.PI * 2);
+    x.fillStyle = "#343442";
     x.fill();
     x.beginPath();
-    x.arc(cx, cy, 74, 0, Math.PI * 2);
-    x.strokeStyle = "rgba(180,190,215,0.28)";
-    x.lineWidth = 3;
+    x.arc(cx, cy, 96, 0, Math.PI * 2);
+    x.strokeStyle = "rgba(200,208,230,0.5)";
+    x.lineWidth = 4;
     x.stroke();
-    x.beginPath();
-    x.arc(cx, cy, 30, 0, Math.PI * 2);
-    x.fillStyle = "#07070b";
-    x.fill();
-    // Hub slots (like a real 35mm core)
-    x.fillStyle = "#14141b";
+    // Core slots (like a real 35mm spool)
+    x.fillStyle = "#15151d";
     for (let k = 0; k < 4; k++) {
       const a = k * Math.PI / 2 + Math.PI / 4;
       x.save();
-      x.translate(cx + Math.cos(a) * 52, cy + Math.sin(a) * 52);
+      x.translate(cx + Math.cos(a) * 74, cy + Math.sin(a) * 74);
       x.rotate(a);
-      x.fillRect(-7, -12, 14, 24);
+      x.fillRect(-9, -14, 18, 28);
       x.restore();
     }
+    // Axle hole in the middle of the hub
+    x.beginPath();
+    x.arc(cx, cy, 34, 0, Math.PI * 2);
+    x.fillStyle = "#0a0a10";
+    x.fill();
+    x.beginPath();
+    x.arc(cx, cy, 34, 0, Math.PI * 2);
+    x.strokeStyle = "rgba(170,180,205,0.4)";
+    x.lineWidth = 3;
+    x.stroke();
 
     const faceTex = new THREE.CanvasTexture(c);
     faceTex.colorSpace = THREE.SRGBColorSpace;
 
     const discGeo = new THREE.CircleGeometry(1, 64);
     const faceMat = new THREE.MeshStandardMaterial({
-      map: faceTex, roughness: 0.55, metalness: 0.05, side: THREE.FrontSide
+      map: faceTex, roughness: 0.5, metalness: 0.1, side: THREE.FrontSide,
+      // A whisper of self-light from its own texture keeps the ringed face
+      // readable in the dark scene without looking neon.
+      emissive: 0xffffff, emissiveMap: faceTex, emissiveIntensity: 0.22
     });
     const backMat = new THREE.MeshStandardMaterial({
-      color: 0x101016, roughness: 0.6, metalness: 0.05, side: THREE.FrontSide
+      color: 0x1a1a24, roughness: 0.55, metalness: 0.08, side: THREE.FrontSide,
+      emissive: 0x1a1a24, emissiveIntensity: 0.3
     });
 
     this.rollGroup = new THREE.Group();
@@ -126,15 +150,15 @@ export default class FilmReel extends THREE.Group {
     this.rollBottom = new THREE.Mesh(discGeo, backMat);
     this.rollBottom.rotation.x = Math.PI / 2;
 
-    // Spindle nub sticking out of the hub
-    const nub = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.09, 0.09, 0.22, 24),
-      new THREE.MeshStandardMaterial({ color: 0x3a3a46, roughness: 0.4, metalness: 0.3 })
+    // Through-spindle: the metal axle the film is wound on, visible at both
+    // ends of the roll — the clearest "unopened roll" cue there is.
+    const spindle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.14, COIL_HALF_H * 2 + 0.3, 24),
+      new THREE.MeshStandardMaterial({ color: 0x8b8fa0, roughness: 0.35, metalness: 0.75 })
     );
-    nub.position.y = 1.0; // re-offset each frame to the roll's half height
 
-    this.rollGroup.add(this.rollTop, this.rollBottom, nub);
-    this.rollNub = nub;
+    this.rollGroup.add(this.rollTop, this.rollBottom, spindle);
+    this.rollSpindle = spindle;
     this.add(this.rollGroup);
   }
 
@@ -335,8 +359,8 @@ export default class FilmReel extends THREE.Group {
     const rcx = pa.x + (pb.x - pa.x) * fR;
     const rcy = pa.y + (pb.y - pa.y) * fR + 0.1;
     const rcz = pa.z + (pb.z - pa.z) * fR - 0.55; // tucks behind the laid film
-    const R = Math.max(0.12, 1.0 * (1 - this.unroll) + 0.1); // shrinking roll
-    const TURNS = 12;            // tightly wound — many layers, like real film
+    const R = Math.max(0.1, ROLL_R0 * (1 - this.unroll) + 0.08); // shrinking roll
+    const TURNS = ROLL_TURNS;    // a few solid wound layers, like a fresh roll
     const spin = this.unroll * 4.2; // the roll visibly rotates as it unwinds
     // Tilt the whole coil toward the camera so the ringed end-face shows —
     // without the tilt the roll is edge-on and reads as tangled threads.
@@ -357,7 +381,7 @@ export default class FilmReel extends THREE.Group {
       // --- Rolled position: tight spiral wound on the roll's tilted axis ---
       const over = Math.max(0, sd - peel);
       const layer = Math.min(1, over / L);                  // 0 peel → 1 core
-      const radius = Math.max(0.09, R * (1 - layer * 0.55));
+      const radius = Math.max(0.07, R * (1 - layer * ROLL_LAYER_DROP));
       const ang = layer * Math.PI * 2 * TURNS - spin;
       const sx = Math.cos(ang) * radius;                    // roll-local
       const sz = Math.sin(ang) * radius;                    // plane coords
@@ -379,7 +403,8 @@ export default class FilmReel extends THREE.Group {
       const fz = bp.z - this.bend * (1 - Math.min(1, ad / maxDist) ** 2) * 0.45 + swayZ * fw;
 
       // Distance taper: the film narrows as it winds away — thinner, but
-      // still visible, until the fog dissolves it.
+      // still visible, until the fog dissolves it. (Flat state only — the
+      // wound roll keeps a constant width, like a real roll of film.)
       const taper = 1 / (1 + ad * 0.058);
       const hh = halfH * taper;
 
@@ -388,10 +413,10 @@ export default class FilmReel extends THREE.Group {
       const bi = (i * 2) * 3;
       const ti = (i * 2 + 1) * 3;
       for (const [idx, s] of [[bi, -1], [ti, 1]]) {
-        // coil-local vertex: (sx, s*hh, sz) tilted about X by TILT_X
+        // coil-local vertex: (sx, s*COIL_HALF_H, sz) tilted about X by TILT_X
         const coilX = rcx + sx;
-        const coilY = rcy + (s * hh) * cosT - sz * sinT;
-        const coilZ = rcz + (s * hh) * sinT + sz * cosT;
+        const coilY = rcy + (s * COIL_HALF_H) * cosT - sz * sinT;
+        const coilZ = rcz + (s * COIL_HALF_H) * sinT + sz * cosT;
         arr[idx]     = fx * fw + coilX * (1 - fw);
         arr[idx + 1] = (fy + s * hh) * fw + coilY * (1 - fw);
         arr[idx + 2] = fz * fw + coilZ * (1 - fw);
@@ -419,11 +444,10 @@ export default class FilmReel extends THREE.Group {
         this.rollGroup.position.set(rs.x, rs.y, rs.z);
         this.rollGroup.rotation.set(rs.tilt, rs.spin, 0);
         this.rollGroup.scale.set(rs.R, 1, rs.R);
-        // End faces sit at the strip's half height along the roll's axis
-        const hh = (STRIP_H / 2) * 0.98;
+        // End faces cap the wound roll exactly at its (constant) width
+        const hh = COIL_HALF_H + 0.005;
         this.rollTop.position.y = hh;
         this.rollBottom.position.y = -hh;
-        this.rollNub.position.y = hh + 0.08;
       }
     }
 
