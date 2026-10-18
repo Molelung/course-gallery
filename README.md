@@ -8,7 +8,7 @@
 
 - **正式入口**：<https://cg.mokelin.cn>
   - 由 Cloudflare Worker `course-gallery` 托管（`wrangler.jsonc` 中 `assets.directory = ./dist`，SPA 回退）
-- 原 GitHub Pages 地址 `https://molelung.github.io/course-gallery/` 已于 2026-10-18 停止服务
+- 原 GitHub Pages 地址 `https://molelung.github.io/course-gallery/` 已于 2026-10-18 停止服务（原 `gh-pages` 分支归档为 `old-gh-pages-20261018`，可随时恢复）
 
 ## 本地开发
 
